@@ -1,0 +1,43 @@
+services:
+
+  backend:
+    container_name: oxtore_backend
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      JWT_SECRET: ce5add14b42a3052a78e0baa78bc0bda96e8d274e2f390d94295d83f454f2fbe53eaf0a56c76594628828edc3b02eb074748c6b362a2fc5ca911eac0a5757a34
+    depends_on:
+      oxtore-db:
+        condition: service_healthy
+    networks:
+      - backend
+
+  oxtore-db:
+    image: postgres:16
+    container_name: oxtore-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: oxtore
+      POSTGRES_PASSWORD: oxtore
+      POSTGRES_DB: oxtore-db
+    volumes:
+      - oxtore-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oxtore -d oxtore-db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  oxtore-db-data:
