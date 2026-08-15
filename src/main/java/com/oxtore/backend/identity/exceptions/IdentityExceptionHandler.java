@@ -1,13 +1,15 @@
 package com.oxtore.backend.identity.exceptions;
 
 import com.oxtore.backend.identity.DTO.ApiError;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-@RestControllerAdvice
-public class GlobalExceptionHandler {
+@RestControllerAdvice(basePackages = "com.oxtore.backend.identity")
+@Order(2)
+public class IdentityExceptionHandler {
 
     @ExceptionHandler(UserAlreadyExistsException.class)
     public ResponseEntity<ApiError> handleUserAlreadyExist(UserAlreadyExistsException exception) {

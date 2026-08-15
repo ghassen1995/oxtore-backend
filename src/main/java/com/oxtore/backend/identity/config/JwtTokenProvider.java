@@ -26,8 +26,6 @@ public class JwtTokenProvider extends OncePerRequestFilter {
     private long jwtExpirationMs;
 
     private SecretKey getSigningKey() {
-        System.out.println("----------------jwt-----------------");
-        System.out.println(this.jwtSecret);
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
 
