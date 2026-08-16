@@ -19,9 +19,6 @@ public class Store {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "owner_id", nullable = false)
-    private Long ownerId;
-
     @Column(name = "store_name", nullable = false, length = 100)
     private String storeName;
 

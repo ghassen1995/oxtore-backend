@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface StoreService {
-    Store createStore(Store store);
+    Store createStore(Store store, Long ownerId);
     Optional<Store> getStoreById(Long id);
-    List<Store> getAllStoresByOwnerId(Long ownerId);
+    List<Store> findStoresByCurrentUser(Long currentUser);
     void deleteStoreById(Long id);
 }

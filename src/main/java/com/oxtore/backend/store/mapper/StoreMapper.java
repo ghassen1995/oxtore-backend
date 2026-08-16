@@ -10,7 +10,6 @@ import org.mapstruct.Mapping;
 public interface StoreMapper {
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "ownerId", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     Store toEntity(CreateStoreRequest request);

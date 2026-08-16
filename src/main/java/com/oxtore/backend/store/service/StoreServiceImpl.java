@@ -1,5 +1,8 @@
 package com.oxtore.backend.store.service;
 
+import com.oxtore.backend.staff.entity.StoreStaff;
+import com.oxtore.backend.staff.enums.StaffRole;
+import com.oxtore.backend.staff.service.StoreStaffService;
 import com.oxtore.backend.store.entity.Store;
 import com.oxtore.backend.store.repository.StoreRepository;
 import org.springframework.stereotype.Service;
@@ -12,15 +15,18 @@ import java.util.Optional;
 public class StoreServiceImpl implements StoreService {
 
     private final StoreRepository storeRepository;
+    private final StoreStaffService storeStaffService;
 
-    public StoreServiceImpl(StoreRepository storeRepository) {
+    public StoreServiceImpl(StoreRepository storeRepository, StoreStaffService storeStaffService) {
         this.storeRepository = storeRepository;
+        this.storeStaffService = storeStaffService;
     }
 
     @Transactional
     @Override
-    public Store createStore(Store store) {
+    public Store createStore(Store store, Long ownerId) {
         Store saved = storeRepository.save(store);
+        storeStaffService.addStaff(saved.getId(), ownerId, StaffRole.SUPERVISOR, ownerId);
         return saved;
     }
 
@@ -30,8 +36,8 @@ public class StoreServiceImpl implements StoreService {
     }
 
     @Override
-    public List<Store> getAllStoresByOwnerId(Long ownerId) {
-        return storeRepository.findAllByOwnerId(ownerId);
+    public List<Store> findStoresByCurrentUser(Long currentUser) {
+        return storeRepository.findStoresByCurrentUser(currentUser);
     }
 
     @Override

@@ -12,6 +12,5 @@ public record CreateStoreRequest(
         @NotNull BusinessSector businessSector,
         @NotBlank @Size(max = 150) String location,
         @NotBlank @Size(max = 20) String phoneNumber,
-        @NotBlank @Email @Size(max = 100) String email,
-        Boolean authenticationEnabled
+        @NotBlank @Email @Size(max = 100) String email
 ) {}

@@ -28,8 +28,7 @@ public class StoreController {
     public ResponseEntity<StoreResponse> createStore(@Valid @RequestBody CreateStoreRequest request, HttpServletRequest httpRequest) {
         Long ownerId = Long.valueOf(httpRequest.getAttribute("userId").toString());
         Store store = storeMapper.toEntity(request);
-        store.setOwnerId(ownerId);
-        Store saved = storeService.createStore(store);
+        Store saved = storeService.createStore(store, ownerId);
         return ResponseEntity.status(HttpStatus.CREATED).body(storeMapper.toResponse(saved));
     }
 
@@ -40,9 +39,10 @@ public class StoreController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/owner/{ownerId}")
-    public ResponseEntity<List<StoreResponse>> getAllStoresByOwnerId(@PathVariable Long ownerId) {
-        List<StoreResponse> stores = storeService.getAllStoresByOwnerId(ownerId)
+    @GetMapping()
+    public ResponseEntity<List<StoreResponse>> getAllStoresByOwnerId(HttpServletRequest httpRequest) {
+        Long currentUser = Long.valueOf(httpRequest.getAttribute("userId").toString());
+        List<StoreResponse> stores = storeService.findStoresByCurrentUser(currentUser)
                 .stream()
                 .map(storeMapper::toResponse)
                 .toList();
