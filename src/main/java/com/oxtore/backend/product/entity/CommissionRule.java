@@ -1,5 +1,6 @@
 package com.oxtore.backend.product.entity;
 
+import com.oxtore.backend.stock.entity.Stock;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -18,8 +19,8 @@ public class CommissionRule {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id", nullable = false, unique = true)
-    private Product product;
+    @JoinColumn(name = "stock_id", nullable = false, unique = true)
+    private Stock stock;
 
     @Column(name = "level_one_commission")
     private BigDecimal levelOneCommission;

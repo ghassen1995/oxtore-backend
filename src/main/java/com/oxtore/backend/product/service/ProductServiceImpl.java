@@ -1,7 +1,13 @@
 package com.oxtore.backend.product.service;
 
 
+import com.oxtore.backend.product.DTOs.CommissionRuleRequest;
+import com.oxtore.backend.product.DTOs.CreateProductRequest;
+import com.oxtore.backend.product.DTOs.WholesalePriceTierRequest;
+import com.oxtore.backend.product.entity.CommissionRule;
 import com.oxtore.backend.product.entity.Product;
+import com.oxtore.backend.product.entity.ProductImage;
+import com.oxtore.backend.product.entity.WholesalePriceTier;
 import com.oxtore.backend.product.enums.SaleType;
 import com.oxtore.backend.product.enums.TransactionMode;
 import com.oxtore.backend.product.exceptions.CommissionRuleNotAllowedException;
@@ -9,49 +15,61 @@ import com.oxtore.backend.product.exceptions.MarketPriceNotAllowedException;
 import com.oxtore.backend.product.exceptions.WholeSaleIsEmptyException;
 import com.oxtore.backend.product.exceptions.WholeSaleIsNotAllowedException;
 import com.oxtore.backend.product.repository.ProductRepository;
+import com.oxtore.backend.stock.service.StockService;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 @Service
+@AllArgsConstructor
 public class ProductServiceImpl implements ProductService {
-    private final ProductRepository productRepository;
 
-    public ProductServiceImpl(ProductRepository productRepository) {
-        this.productRepository = productRepository;
-    }
+    private final ProductRepository productRepository;
+    private final StockService stockService;
 
     @Override
     @Transactional
-    public Product save(Product product) {
-        if (product == null) {
-            throw new IllegalArgumentException("Product cannot be null");
+    public Product createProduct(CreateProductRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request cannot be null");
         }
 
-        if (product.getSaleType() != SaleType.WHOLESALE && product.getMarketPrice() != null) {
-            throw new MarketPriceNotAllowedException();
-        }
+        Product product = Product.builder()
+                .condition(request.condition())
+                .productName(request.productName())
+                .unitOfSale(request.unitOfSale())
+                .status(request.status())
+                .storeId(request.storeId())
+                .build();
 
-        if (product.getCommissionRule() != null) {
-            boolean isAllowed = product.getSaleType() == SaleType.WHOLESALE
-                    && product.getTransactionMode() == TransactionMode.CONSIGNMENT;
-
-            if (!isAllowed) {
-                throw new CommissionRuleNotAllowedException();
-            }
-        }
-
-        if (product.getSaleType() == SaleType.WHOLESALE && product.getWholesalePriceTiers().isEmpty()) {
-            throw new WholeSaleIsEmptyException();
-        }
-
-        if (product.getSaleType() == SaleType.RETAIL && !product.getWholesalePriceTiers().isEmpty()) {
-            throw new WholeSaleIsNotAllowedException();
+        if (request.images() != null) {
+            request.images().forEach(img -> {
+                ProductImage image = ProductImage.builder()
+                        .url(img.url())
+                        .displayOrder(img.displayOrder())
+                        .build();
+                image.setProduct(product);
+                product.getImages().add(image);
+            });
         }
 
         Product savedProduct = productRepository.save(product);
+
+        stockService.createStock(
+                request.storeId(),
+                savedProduct.getId(),
+                request.initialStock(),
+                request.saleType(),
+                request.transactionMode(),
+                request.sellingPrice(),
+                request.marketPrice(),
+                request.commissionRule(),          // CommissionRuleRequest — DTO, unmapped
+                request.wholesalePriceTiers()      // List<WholesalePriceTierRequest> — DTO, unmapped
+        );
 
         return savedProduct;
     }
@@ -77,6 +95,5 @@ public class ProductServiceImpl implements ProductService {
     public List<Product> findAllProductsByStoreId(Long storeId) {
         return productRepository.findAllProductsByStoreId(storeId);
     }
-
 
 }

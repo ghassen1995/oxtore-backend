@@ -17,22 +17,22 @@ import java.util.Map;
 @RestControllerAdvice(basePackages = "com.oxtore.backend.staff")
 @Order(3)
 public class StaffExceptionHandler {
-    @ExceptionHandler(MarketPriceNotAllowedException.class)
+    @ExceptionHandler(InvalidStaffOperationException.class)
     public ResponseEntity<Object> invalidStaffOperationException(InvalidStaffOperationException ex) {
         return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
     }
 
-    @ExceptionHandler(CommissionRuleNotAllowedException.class)
+    @ExceptionHandler(StaffAlreadyExistsException.class)
     public ResponseEntity<Object> staffAlreadyExistsException(StaffAlreadyExistsException ex) {
         return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
+    @ExceptionHandler(StaffNotFoundException.class)
     public ResponseEntity<Object> staffNotFoundException(StaffNotFoundException ex) {
         return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
     }
 
-    @ExceptionHandler(WholeSaleIsEmptyException.class)
+    @ExceptionHandler(SupervisorAlreadyExistsException.class)
     public ResponseEntity<Object> supervisorAlreadyExistsException(SupervisorAlreadyExistsException ex) {
         return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
     }

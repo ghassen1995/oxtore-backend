@@ -1,6 +1,7 @@
 package com.oxtore.backend.product.DTOs;
 
 
+import com.oxtore.backend.common.security.HasStoreId;
 import com.oxtore.backend.product.enums.*;
 
 import java.math.BigDecimal;
@@ -8,17 +9,21 @@ import java.util.List;
 
 public record CreateProductRequest(
         ProductCondition condition,
+        String productName,
+        UnitOfSale unitOfSale,
+        ProductStatus status,
+        Long storeId,
+        List<ProductImageRequest> images,
         SaleType saleType,
         TransactionMode transactionMode,
-        String productName,
+        BigDecimal sellingPrice,
         BigDecimal marketPrice,
-        BigDecimal retailPrice,
-        Integer availableStock,
-        UnitOfSale unitOfSale,
+        Integer initialStock,
         CommissionRuleRequest commissionRule,
-        List<ProductImageRequest> images,
-        List<WholesalePriceTierRequest> wholesalePriceTiers,
-        ProductStatus status,
-        Long storeId
-) {
+        List<WholesalePriceTierRequest> wholesalePriceTiers
+) implements HasStoreId {
+    @Override
+    public Long resolveStoreId() {
+        return storeId;
+    }
 }

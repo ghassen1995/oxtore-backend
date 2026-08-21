@@ -1,5 +1,6 @@
 package com.oxtore.backend.product.entity;
 
+import com.oxtore.backend.stock.entity.Stock;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -18,8 +19,8 @@ public class WholesalePriceTier {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
+    @JoinColumn(name = "stock_id", nullable = false)
+    private Stock stock;
 
     @Column(name = "min_quantity", nullable = false)
     private Integer minQuantity;

@@ -1,10 +1,14 @@
 package com.oxtore.backend.product.controller;
 
+import com.oxtore.backend.common.security.RequireStoreRole;
 import com.oxtore.backend.product.DTOs.CreateProductRequest;
 import com.oxtore.backend.product.DTOs.ProductResponse;
 import com.oxtore.backend.product.entity.Product;
 import com.oxtore.backend.product.mapper.ProductMapper;
 import com.oxtore.backend.product.service.ProductService;
+import com.oxtore.backend.staff.enums.StaffRole;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,15 +25,12 @@ public class ProductController {
         this.productMapper = productMapper;
     }
 
+    @RequireStoreRole(value = {StaffRole.SUPERVISOR}, storeIdSource = "body")
     @PostMapping()
-    public ResponseEntity<ProductResponse> addProduct(@RequestBody CreateProductRequest createProductRequest) {
-        Product product = productMapper.productRequestToProduct(createProductRequest);
-        product.getWholesalePriceTiers().forEach(tier -> tier.setProduct(product));
-        if(createProductRequest.commissionRule() != null) {
-            product.getCommissionRule().setProduct(product);
-        }
-        productService.save(product);
-        return ResponseEntity.ok(productMapper.productToProductResponse(product));
+    public ResponseEntity<ProductResponse> addProduct(@Valid @RequestBody CreateProductRequest request) {
+        Product product = productService.createProduct(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(productMapper.productToProductResponse(product));
     }
 
     @GetMapping()

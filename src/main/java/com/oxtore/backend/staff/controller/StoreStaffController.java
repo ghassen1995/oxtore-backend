@@ -1,5 +1,6 @@
 package com.oxtore.backend.staff.controller;
 
+import com.oxtore.backend.common.security.RequireStoreRole;
 import com.oxtore.backend.staff.DTOs.AddStaffRequest;
 import com.oxtore.backend.staff.DTOs.StoreStaffResponse;
 import com.oxtore.backend.staff.DTOs.UpdateStaffRoleRequest;
@@ -24,6 +25,7 @@ public class StoreStaffController {
     private final StoreStaffService storeStaffService;
     private final StoreStaffMapper storeStaffMapper;
 
+    @RequireStoreRole(value = StaffRole.SUPERVISOR, pathParam = "storeId")
     @PostMapping
     public ResponseEntity<StoreStaffResponse> addStaff(
             @PathVariable Long storeId,
@@ -36,7 +38,7 @@ public class StoreStaffController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(storeStaffMapper.toResponse(saved));
     }
-
+    @RequireStoreRole(value = StaffRole.SUPERVISOR, pathParam = "storeId")
     @PatchMapping("/{userId}/role")
     public ResponseEntity<StoreStaffResponse> updateRole(
             @PathVariable Long storeId,
@@ -49,6 +51,7 @@ public class StoreStaffController {
         return ResponseEntity.ok(storeStaffMapper.toResponse(updated));
     }
 
+    @RequireStoreRole(value = StaffRole.SUPERVISOR, pathParam = "storeId")
     @DeleteMapping("/{userId}")
     public ResponseEntity<Void> removeStaff(
             @PathVariable Long storeId,
@@ -60,6 +63,7 @@ public class StoreStaffController {
         return ResponseEntity.noContent().build();
     }
 
+    @RequireStoreRole(value = { StaffRole.SUPERVISOR, StaffRole.MANAGER }, pathParam = "storeId")
     @GetMapping
     public ResponseEntity<List<StoreStaffResponse>> getStaffByStore(
             @PathVariable Long storeId) {
@@ -70,6 +74,7 @@ public class StoreStaffController {
         return ResponseEntity.ok(staff);
     }
 
+    @RequireStoreRole(value = { StaffRole.SUPERVISOR, StaffRole.MANAGER }, pathParam = "storeId")
     @GetMapping("/role/{role}")
     public ResponseEntity<List<StoreStaffResponse>> getStaffByRole(
             @PathVariable Long storeId,
@@ -81,6 +86,7 @@ public class StoreStaffController {
         return ResponseEntity.ok(staff);
     }
 
+    @RequireStoreRole(value = { StaffRole.SUPERVISOR, StaffRole.MANAGER }, pathParam = "storeId")
     @GetMapping("/{userId}")
     public ResponseEntity<StoreStaffResponse> getStaffMember(
             @PathVariable Long storeId,

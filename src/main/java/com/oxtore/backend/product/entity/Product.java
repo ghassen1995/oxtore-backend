@@ -25,7 +25,7 @@ public class Product {
     @Enumerated(EnumType.STRING)
     @Column(name = "condition", nullable = false)
     private ProductCondition condition;
-
+/*
     @Enumerated(EnumType.STRING)
     @Column(name = "sale_type", nullable = false)
     private SaleType saleType;
@@ -33,7 +33,7 @@ public class Product {
     @Enumerated(EnumType.STRING)
     @Column(name = "transaction_mode", nullable = false)
     private TransactionMode transactionMode;
-
+*/
     @Column(name = "product_name", nullable = false, length = 100)
     private String productName;
 
@@ -44,11 +44,11 @@ public class Product {
     @Builder.Default
     private List<ProductImage> images = new ArrayList<>();
 
-    @Column(name = "market_price", precision = 15, scale = 2)
+    /*@Column(name = "market_price", precision = 15, scale = 2)
     private BigDecimal marketPrice;
 
     @Column(name = "retail_price", precision = 15, scale = 2)
-    private BigDecimal retailPrice;
+    private BigDecimal retailPrice;*/
 
     @Column(name = "available_stock", nullable = true)
     private Integer availableStock;
@@ -57,17 +57,9 @@ public class Product {
     @Column(name = "unit_of_sale", nullable = false)
     private UnitOfSale unitOfSale;
 
-    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @OrderBy("minQuantity ASC")
-    @Builder.Default
-    private List<WholesalePriceTier> wholesalePriceTiers = new ArrayList<>();
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ProductStatus status;
-
-    @OneToOne(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    private CommissionRule commissionRule;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
