@@ -34,7 +34,7 @@ public class StoreStaffController {
 
         Long addedBy = Long.valueOf(httpRequest.getAttribute("userId").toString());
         StoreStaff saved = storeStaffService.addStaff(
-                storeId, request.userId(), request.role(), addedBy);
+                storeId, request.userPublicId(), request.role(), addedBy);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(storeStaffMapper.toResponse(saved));
     }

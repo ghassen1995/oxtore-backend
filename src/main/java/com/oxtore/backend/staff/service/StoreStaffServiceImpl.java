@@ -1,5 +1,7 @@
 package com.oxtore.backend.staff.service;
 
+import com.oxtore.backend.identity.entity.User;
+import com.oxtore.backend.identity.repository.IdentityRepository;
 import com.oxtore.backend.staff.entity.StoreStaff;
 import com.oxtore.backend.staff.enums.StaffRole;
 import com.oxtore.backend.staff.exceptions.InvalidStaffOperationException;
@@ -25,6 +27,16 @@ public class StoreStaffServiceImpl implements StoreStaffService {
 
     private final StoreStaffRepository storeStaffRepository;
     private final StoreRepository storeRepository;
+    private final IdentityRepository identityRepository;
+
+    @Override
+    @Transactional
+    public StoreStaff addStaff(Long storeId, String userPublicId, StaffRole role, Long addedBy) {
+        User user = identityRepository.findByPublicId(userPublicId)
+                .orElseThrow(() -> new EntityNotFoundException("No user found with ID: " + userPublicId));
+
+        return addStaff(storeId, user.getId(), role, addedBy);
+    }
 
     @Transactional
     @Override

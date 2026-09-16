@@ -11,6 +11,9 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true, updatable = false, length = 8)
+    private String publicId;
+
     @Column(nullable = false, unique = true)
     private String email;
 
@@ -27,8 +30,9 @@ public class User {
 
     public User() {}
 
-    public User(String email, String passwordHash, String firstName,
+    public User(String publicId, String email, String passwordHash, String firstName,
                          String lastName, String phoneNumber, UserRole role) {
+        this.publicId = publicId;
         this.email = email;
         this.passwordHash = passwordHash;
         this.firstName = firstName;
@@ -51,4 +55,6 @@ public class User {
     public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
     public UserRole getRole() { return role; }
     public void setRole(UserRole role) { this.role = role; }
+    public String getPublicId() { return publicId; }
+    public void setPublicId(String publicId) { this.publicId = publicId; }
 }
