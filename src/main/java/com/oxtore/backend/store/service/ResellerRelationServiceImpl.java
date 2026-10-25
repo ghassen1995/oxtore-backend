@@ -1,5 +1,8 @@
 package com.oxtore.backend.store.service;
 
+import com.oxtore.backend.notification.enums.NotificationType;
+import com.oxtore.backend.notification.service.NotificationRecipients;
+import com.oxtore.backend.notification.service.NotificationService;
 import com.oxtore.backend.store.entity.ResellerRelation;
 import com.oxtore.backend.store.entity.Store;
 import com.oxtore.backend.store.enums.ResellerRelationStatus;
@@ -19,6 +22,11 @@ public class ResellerRelationServiceImpl implements ResellerRelationService {
 
     private final ResellerRelationRepository resellerRelationRepository;
     private final StoreRepository storeRepository;
+    private final NotificationService notificationService;
+    private final NotificationRecipients notificationRecipients;
+
+    /** The Angular app deep-links to the "Received" tab on this exact title — do not translate. */
+    private static final String NEW_NETWORK_REQUEST_TITLE = "New Network Request";
 
     @Override
     @Transactional
@@ -49,7 +57,17 @@ public class ResellerRelationServiceImpl implements ResellerRelationService {
                 .requestedBy(requestedBy)
                 .build();
 
-        return resellerRelationRepository.save(relation);
+        ResellerRelation saved = resellerRelationRepository.save(relation);
+        notificationService.notify(
+                notificationRecipients.supervisorsOf(sourceStoreId),
+                requestedBy,
+                NotificationType.NETWORK,
+                NEW_NETWORK_REQUEST_TITLE,
+                "%s souhaite devenir revendeur de votre boutique".formatted(resellerStore.getStoreName()),
+                "business-outline",
+                java.util.Map.of("requestId", String.valueOf(saved.getId()),
+                        "fromBoutiqueId", String.valueOf(resellerStoreId)));
+        return saved;
     }
 
     @Override
@@ -66,7 +84,18 @@ public class ResellerRelationServiceImpl implements ResellerRelationService {
         relation.setStatus(accept ? ResellerRelationStatus.ACCEPTED : ResellerRelationStatus.DECLINED);
         relation.setDecidedBy(decidedBy);
 
-        return resellerRelationRepository.save(relation);
+        ResellerRelation saved = resellerRelationRepository.save(relation);
+        notificationService.notify(
+                java.util.List.of(saved.getRequestedBy()),
+                decidedBy,
+                NotificationType.NETWORK,
+                accept ? "Partenariat accepté" : "Partenariat refusé",
+                "%s a %s votre demande de partenariat".formatted(
+                        saved.getSourceStore().getStoreName(), accept ? "accepté" : "refusé"),
+                accept ? "checkmark-circle-outline" : "close-circle-outline",
+                java.util.Map.of("requestId", String.valueOf(saved.getId()),
+                        "toBoutiqueId", String.valueOf(saved.getSourceStore().getId())));
+        return saved;
     }
 
     @Override

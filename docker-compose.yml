@@ -8,8 +8,35 @@ services:
     restart: unless-stopped
     ports:
       - "8081:8081"
+      - "8082:8082" # Socket.IO notifications
+    volumes:
+      - oxtore-uploads:/app/uploads # uploaded images survive container rebuilds
     environment:
-      JWT_SECRET: ce5add14b42a3052a78e0baa78bc0bda96e8d274e2f390d94295d83f454f2fbe53eaf0a56c76594628828edc3b02eb074748c6b362a2fc5ca911eac0a5757a34
+      APP_UPLOAD_DIR: /app/uploads
+      # Base of image URLs sent to the app. Use the PC's LAN address (e.g. http://192.168.1.13:8081) when testing on a phone.
+      APP_PUBLIC_BASE_URL: ${APP_PUBLIC_BASE_URL:-http://localhost:8081}
+      # Secrets and provider settings come from ./.env (not committed); see .env.example and README.md
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in .env}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS:-604800000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      OTP_HMAC_SECRET: ${OTP_HMAC_SECRET:?set OTP_HMAC_SECRET in .env}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
+      OTP_DEV_LOG_CODES: ${OTP_DEV_LOG_CODES:-false}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-true}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Oxtore}
+      WHATSAPP_PROVIDER: ${WHATSAPP_PROVIDER:-none}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_PHONE: ${TWILIO_PHONE:-}
+      TWILIO_WHATSAPP_CONTENT_SID: ${TWILIO_WHATSAPP_CONTENT_SID:-}
     depends_on:
       oxtore-db:
         condition: service_healthy
@@ -41,3 +68,4 @@ networks:
 
 volumes:
   oxtore-db-data:
+  oxtore-uploads:

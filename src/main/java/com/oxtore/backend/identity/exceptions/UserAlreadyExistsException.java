@@ -2,6 +2,6 @@ package com.oxtore.backend.identity.exceptions;
 
 public class UserAlreadyExistsException extends RuntimeException {
     public UserAlreadyExistsException(String email) {
-        super("User already exists with email: " + email);
+        super("An account with this email already exists.");
     }
 }

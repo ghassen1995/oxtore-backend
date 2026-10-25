@@ -1,5 +1,8 @@
 package com.oxtore.backend.stock.service;
 
+import com.oxtore.backend.notification.enums.NotificationType;
+import com.oxtore.backend.notification.service.NotificationRecipients;
+import com.oxtore.backend.notification.service.NotificationService;
 import com.oxtore.backend.product.enums.SaleType;
 import com.oxtore.backend.product.enums.TransactionMode;
 import com.oxtore.backend.stock.entity.Stock;
@@ -17,6 +20,10 @@ import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 
 @Service
 @AllArgsConstructor
@@ -27,6 +34,8 @@ public class SupplyRequestServiceImpl implements SupplyRequestService {
     private final StockService stockService;
     private final StoreRepository storeRepository;
     private final ResellerRelationService resellerRelationService;
+    private final NotificationService notificationService;
+    private final NotificationRecipients notificationRecipients;
 
     @Transactional
     @Override
@@ -61,7 +70,18 @@ public class SupplyRequestServiceImpl implements SupplyRequestService {
                 .requestedBy(requestedBy)
                 .build();
 
-        return supplyRequestRepository.save(request);
+        SupplyRequest saved = supplyRequestRepository.save(request);
+        notificationService.notify(
+                notificationRecipients.supervisorsOf(saved.getSourceStore().getId()),
+                requestedBy,
+                NotificationType.STOCK_REQUEST,
+                "Nouvelle demande de stock",
+                "%s demande %d × %s".formatted(
+                        resellerStore.getStoreName(), requestedQuantity, saved.getProduct().getProductName()),
+                "cube-outline",
+                Map.of("requestId", String.valueOf(saved.getId()),
+                        "fromBoutiqueId", String.valueOf(resellerStoreId)));
+        return saved;
     }
 
     @Transactional
@@ -76,7 +96,22 @@ public class SupplyRequestServiceImpl implements SupplyRequestService {
 
         request.setStatus(approve ? SupplyRequestStatus.APPROVED : SupplyRequestStatus.DECLINED);
         request.setDecidedBy(decidedBy);
-        return supplyRequestRepository.save(request);
+        SupplyRequest saved = supplyRequestRepository.save(request);
+
+        List<Long> recipients = new ArrayList<>();
+        recipients.add(saved.getRequestedBy());
+        recipients.addAll(notificationRecipients.supervisorsOf(saved.getResellerStore().getId()));
+        notificationService.notify(
+                recipients,
+                decidedBy,
+                NotificationType.STOCK_REQUEST,
+                approve ? "Demande de stock approuvée" : "Demande de stock refusée",
+                "%s a %s votre demande de %d × %s".formatted(
+                        saved.getSourceStore().getStoreName(), approve ? "approuvé" : "refusé",
+                        saved.getRequestedQuantity(), saved.getProduct().getProductName()),
+                approve ? "checkmark-circle-outline" : "close-circle-outline",
+                Map.of("requestId", String.valueOf(saved.getId())));
+        return saved;
     }
 
     @Transactional
@@ -110,15 +145,30 @@ public class SupplyRequestServiceImpl implements SupplyRequestService {
                         resellerStoreId,
                         request.getProduct().getId(),
                         request.getRequestedQuantity(),
+                        // The reseller always sells the received goods retail, as a direct sale,
+                        // whatever terms the source stock was created with (consignment / wholesale).
                         SaleType.RETAIL,
                         TransactionMode.DIRECT_SALE,
                         sourceStock.getRetailPrice(),
                         null,
                         null,
-                        null
+                        null,
+                        request.getId()
                 ));
 
         request.setStatus(SupplyRequestStatus.CONFIRMED);
+
+        // No actor id reaches this method, so nobody is excluded; the recipients are on the source side anyway.
+        notificationService.notify(
+                notificationRecipients.supervisorsOf(request.getSourceStore().getId()),
+                null,
+                NotificationType.STOCK_REQUEST,
+                "Réception confirmée",
+                "%s a confirmé la réception de %d × %s".formatted(
+                        request.getResellerStore().getStoreName(), request.getRequestedQuantity(),
+                        request.getProduct().getProductName()),
+                "cube-outline",
+                Map.of("requestId", String.valueOf(request.getId())));
 
         return resellerStock;
     }

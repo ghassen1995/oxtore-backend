@@ -41,6 +41,7 @@ public class Product {
     private Long storeId;
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy("displayOrder ASC, id ASC")
     @Builder.Default
     private List<ProductImage> images = new ArrayList<>();
 

@@ -68,7 +68,8 @@ public class ProductServiceImpl implements ProductService {
                 request.sellingPrice(),
                 request.marketPrice(),
                 request.commissionRule(),          // CommissionRuleRequest — DTO, unmapped
-                request.wholesalePriceTiers()      // List<WholesalePriceTierRequest> — DTO, unmapped
+                request.wholesalePriceTiers(),      // List<WholesalePriceTierRequest> — DTO, unmapped
+                null
         );
 
         return savedProduct;

@@ -1,5 +1,7 @@
 package com.oxtore.backend.staff.service;
 
+import com.oxtore.backend.notification.enums.NotificationType;
+import com.oxtore.backend.notification.service.NotificationService;
 import com.oxtore.backend.identity.entity.User;
 import com.oxtore.backend.identity.repository.IdentityRepository;
 import com.oxtore.backend.staff.entity.StoreStaff;
@@ -28,6 +30,7 @@ public class StoreStaffServiceImpl implements StoreStaffService {
     private final StoreStaffRepository storeStaffRepository;
     private final StoreRepository storeRepository;
     private final IdentityRepository identityRepository;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -63,7 +66,25 @@ public class StoreStaffServiceImpl implements StoreStaffService {
                 .addedBy(addedBy)
                 .build();
 
-        return storeStaffRepository.save(staff);
+        StoreStaff saved = storeStaffRepository.save(staff);
+        // Store creation adds the owner with addedBy == userId; the actor exclusion skips that case.
+        notificationService.notify(
+                java.util.List.of(userId),
+                addedBy,
+                NotificationType.HR,
+                "Ajout à une équipe",
+                "Vous avez été ajouté(e) à %s en tant que %s".formatted(store.getStoreName(), roleLabelFr(role)),
+                "people-outline",
+                java.util.Map.of("storeId", String.valueOf(storeId)));
+        return saved;
+    }
+
+    private static String roleLabelFr(StaffRole role) {
+        return switch (role) {
+            case SUPERVISOR -> "superviseur";
+            case MANAGER -> "gérant";
+            case SELLER -> "vendeur";
+        };
     }
 
     @Transactional

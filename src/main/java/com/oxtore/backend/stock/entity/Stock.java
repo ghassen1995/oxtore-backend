@@ -40,6 +40,9 @@ public class Stock {
     @Builder.Default
     private List<WholesalePriceTier> wholesalePriceTiers = new ArrayList<>();
 
+    @Column(name = "source_supply_request_id")
+    private Long sourceSupplyRequestId;
+
     @OneToOne(mappedBy = "stock", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private CommissionRule commissionRule;
 

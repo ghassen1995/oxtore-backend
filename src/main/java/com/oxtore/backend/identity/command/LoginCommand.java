@@ -11,4 +11,10 @@ public record LoginCommand(String email, String passwordHash) {
             throw new IllegalArgumentException("password cannot be null or empty");
         }
     }
+
+    /** passwordHash actually holds the raw password here: never print it. */
+    @Override
+    public String toString() {
+        return "LoginCommand[email=" + email + ", passwordHash=***]";
+    }
 }

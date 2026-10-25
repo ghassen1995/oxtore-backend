@@ -23,4 +23,6 @@ public interface StoreStaffRepository extends JpaRepository<StoreStaff, Long> {
     boolean existsByStoreIdAndUserId(Long storeId, Long userId);
 
     Optional<StoreStaff> findByStore_IdAndUserId(Long storeId, Long userId);
+
+    List<StoreStaff> findAllByUserId(Long userId);
 }

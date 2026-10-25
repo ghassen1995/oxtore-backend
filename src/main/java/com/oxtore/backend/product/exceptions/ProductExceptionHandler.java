@@ -1,7 +1,9 @@
 package com.oxtore.backend.product.exceptions;
 
 import org.springframework.core.annotation.Order;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -21,6 +23,16 @@ public class ProductExceptionHandler {
     @ExceptionHandler(CommissionRuleNotAllowedException.class)
     public ResponseEntity<Object> handleCommissionRuleNotAllowedException(CommissionRuleNotAllowedException ex) {
         return buildErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<Object> entityNotFoundException(EntityNotFoundException ex) {
+        return buildErrorResponse(ex.getMessage(), HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Object> accessDeniedException(AccessDeniedException ex) {
+        return buildErrorResponse(ex.getMessage(), HttpStatus.FORBIDDEN);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

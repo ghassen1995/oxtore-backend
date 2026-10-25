@@ -13,6 +13,7 @@ import com.oxtore.backend.product.exceptions.WholeSaleIsNotAllowedException;
 import com.oxtore.backend.product.repository.ProductRepository;
 import com.oxtore.backend.stock.entity.Stock;
 import com.oxtore.backend.stock.entity.StockActivity;
+import com.oxtore.backend.stock.enums.SettlementStatus;
 import com.oxtore.backend.stock.exceptions.InsufficientStockException;
 import com.oxtore.backend.stock.exceptions.StockAlreadyExistsException;
 import com.oxtore.backend.stock.repository.StockActivityRepository;
@@ -43,7 +44,8 @@ public class StockServiceImpl implements StockService {
                              SaleType saleType, TransactionMode transactionMode,
                              BigDecimal retailPrice, BigDecimal marketPrice,
                              CommissionRuleRequest commissionRuleRequest,
-                             List<WholesalePriceTierRequest> wholesalePriceTierRequests) {
+                             List<WholesalePriceTierRequest> wholesalePriceTierRequests,
+                             Long sourceSupplyRequestId) {
 
         if (stockRepository.findByProduct_IdAndStore_Id(productId, storeId).isPresent()) {
             throw new StockAlreadyExistsException(productId, storeId);
@@ -54,7 +56,7 @@ public class StockServiceImpl implements StockService {
         Store store = storeRepository.findById(storeId)
                 .orElseThrow(() -> new EntityNotFoundException("Store not found: " + storeId));
 
-        validateStockRules(saleType, marketPrice, commissionRuleRequest, wholesalePriceTierRequests);
+       // validateStockRules(saleType, marketPrice, commissionRuleRequest, wholesalePriceTierRequests);
 
         Stock stock = Stock.builder()
                 .product(product)
@@ -95,8 +97,30 @@ public class StockServiceImpl implements StockService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public StockActivity recordSale(Long stockId, Integer quantitySold, Long soldBy) {
-        return null;
+        if (quantitySold == null || quantitySold <= 0) {
+            throw new IllegalArgumentException("Sale quantity must be positive");
+        }
+        Stock stock = stockRepository.findByIdForUpdate(stockId)
+                .orElseThrow(() -> new EntityNotFoundException("Stock not found: " + stockId));
+        if (stock.getQuantity() < quantitySold) {
+            throw new InsufficientStockException(stockId, stock.getQuantity(), quantitySold);
+        }
+
+        stock.setQuantity(stock.getQuantity() - quantitySold);
+        stockRepository.save(stock);
+
+        StockActivity activity = StockActivity.builder()
+                .stock(stock)
+                .quantitySold(quantitySold)
+                .unitPrice(stock.getRetailPrice())
+                .soldBy(soldBy)
+                .settlementStatus(stock.getTransactionMode() == TransactionMode.CONSIGNMENT
+                        ? SettlementStatus.UNSETTLED
+                        : SettlementStatus.SETTLED)
+                .build();
+        return stockActivityRepository.save(activity);
     }
 
     @Override
@@ -142,5 +166,11 @@ public class StockServiceImpl implements StockService {
                         .unitPrice(r.unitPrice())
                         .build())
                 .toList();
+    }
+    @Override
+    public Stock getStock(Long productId, Long storeId) {
+        return stockRepository.findByProduct_IdAndStore_Id(productId, storeId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Stock not found for product %d at store %d".formatted(productId, storeId)));
     }
 }

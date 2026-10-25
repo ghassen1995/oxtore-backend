@@ -17,7 +17,7 @@ import java.io.IOException;
 import java.util.Date;
 
 @Service
-public class JwtTokenProvider extends OncePerRequestFilter {
+public class JwtTokenProvider {
 
     @Value("${jwt.secret:your-secret-key-min-256-bits-long-for-production}")
     private String jwtSecret;
@@ -39,27 +39,4 @@ public class JwtTokenProvider extends OncePerRequestFilter {
                 .compact();
     }
 
-    @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-
-            try {
-                Claims claims = Jwts.parser()
-                        .verifyWith(getSigningKey())
-                        .build()
-                        .parseSignedClaims(token)
-                        .getPayload();
-                String userId = claims.getSubject();
-                String email = (String) claims.get("email");
-
-                request.setAttribute("userId", userId);
-                request.setAttribute("email", email);
-            } catch (Exception e) {
-
-            }
-        }
-        filterChain.doFilter(request, response);
-    }
 }
