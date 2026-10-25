@@ -1,0 +1,88 @@
+# Production stack for the VPS (see DEPLOY.md). Run with:
+#   docker compose -f docker-compose.prod.yml up -d --build
+# Differences from docker-compose.yml:
+# - ports bound to 127.0.0.1: only Nginx on the same server reaches them (Docker bypasses ufw rules)
+# - the database has no public port and its password comes from .env (DB_PASSWORD)
+# - JVM heap capped, Spring debug logging off, container logs rotated
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+
+  backend:
+    container_name: oxtore_backend
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: oxtore-backend:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:8081"
+      - "127.0.0.1:8082:8082" # Socket.IO notifications
+    volumes:
+      - oxtore-uploads:/app/uploads # uploaded images survive container rebuilds
+    logging: *logging
+    environment:
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xmx512m}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB: INFO
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_CONTEXT: INFO
+      APP_UPLOAD_DIR: /app/uploads
+      # Public HTTPS address of the API, e.g. https://api.example.com (image URLs are built from it)
+      APP_PUBLIC_BASE_URL: ${APP_PUBLIC_BASE_URL:?set APP_PUBLIC_BASE_URL in .env}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in .env}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS:-604800000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      OTP_HMAC_SECRET: ${OTP_HMAC_SECRET:?set OTP_HMAC_SECRET in .env}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-true}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Oxtore}
+      WHATSAPP_PROVIDER: ${WHATSAPP_PROVIDER:-none}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_PHONE: ${TWILIO_PHONE:-}
+      TWILIO_WHATSAPP_CONTENT_SID: ${TWILIO_WHATSAPP_CONTENT_SID:-}
+    depends_on:
+      oxtore-db:
+        condition: service_healthy
+    networks:
+      - backend
+
+  oxtore-db:
+    image: postgres:16
+    container_name: oxtore-db
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_USER: oxtore
+      # Only applied when the data volume is first created
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      POSTGRES_DB: oxtore-db
+    volumes:
+      - oxtore-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oxtore -d oxtore-db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  oxtore-db-data:
+  oxtore-uploads:
