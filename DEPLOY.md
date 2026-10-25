@@ -181,7 +181,7 @@ Wait for `Started BackendApplication` in the logs (`Ctrl+C` stops following the 
 curl http://127.0.0.1:8081/actuator/health
 ```
 
-It should answer `{"status":"UP",...}`.
+It should answer `{"status":"UP"}` (the endpoint is public and shows no details).
 
 The containers restart by themselves after a crash or a server reboot (`restart: unless-stopped`).
 

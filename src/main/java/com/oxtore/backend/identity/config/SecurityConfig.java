@@ -47,6 +47,8 @@ public class SecurityConfig {
                         // Uploaded images: read-only and public, since <img> can't send the Authorization header.
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         .requestMatchers(HttpMethod.HEAD, "/uploads/**").permitAll()
+                        // Health check for monitoring and deploy scripts: status only, details are hidden
+                        .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                         .anyRequest().authenticated()
                 )
                 // Missing, expired or invalid token → 401 (not Spring's default 403), so the app's interceptor knows
