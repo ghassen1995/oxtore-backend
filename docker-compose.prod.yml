@@ -1,6 +1,8 @@
-# Production stack for the VPS (see DEPLOY.md). Run with:
-#   docker compose -f docker-compose.prod.yml up -d --build
+# Production stack for the VPS (see DEPLOY.md). The server gets only this file, .env and the built image
+# (no source code). Run with:
+#   docker compose -f docker-compose.prod.yml up -d
 # Differences from docker-compose.yml:
+# - uses the prebuilt image oxtore-backend:latest instead of building from source
 # - ports bound to 127.0.0.1: only Nginx on the same server reaches them (Docker bypasses ufw rules)
 # - the database has no public port and its password comes from .env (DB_PASSWORD)
 # - JVM heap capped, Spring debug logging off, container logs rotated
@@ -11,13 +13,14 @@ x-logging: &logging
     max-size: "10m"
     max-file: "3"
 
+# Fixed project name, so containers and volumes (oxtore-backend_oxtore-db-data, ...) stay the same whatever folder
+# this file is in
+name: oxtore-backend
+
 services:
 
   backend:
     container_name: oxtore_backend
-    build:
-      context: ./
-      dockerfile: Dockerfile
     image: oxtore-backend:latest
     restart: unless-stopped
     ports:
