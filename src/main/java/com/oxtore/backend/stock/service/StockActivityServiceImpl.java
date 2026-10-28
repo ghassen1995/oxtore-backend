@@ -37,10 +37,19 @@ public class StockActivityServiceImpl implements StockActivityService {
                 .quantitySold(quantitySold)
                 .unitPrice(stock.getRetailPrice())
                 .soldBy(soldBy)
-                .settlementStatus(stock.getTransactionMode() == TransactionMode.CONSIGNMENT
-                        ? SettlementStatus.UNSETTLED : SettlementStatus.SETTLED)
+                .settlementStatus(owesSource(stock) ? SettlementStatus.UNSETTLED : SettlementStatus.SETTLED)
                 .build();
 
         return stockActivityRepository.save(activity);
+    }
+
+    /**
+     * A product created by another store was received from it (supply request), so the sale is owed to that store
+     * until it records a payment (ResellerSettlementService); the store's own consignment stock stays unsettled as before.
+     */
+    private static boolean owesSource(Stock stock) {
+        Long ownerStoreId = stock.getProduct().getStoreId();
+        boolean resold = ownerStoreId != null && !ownerStoreId.equals(stock.getStore().getId());
+        return resold || stock.getTransactionMode() == TransactionMode.CONSIGNMENT;
     }
 }

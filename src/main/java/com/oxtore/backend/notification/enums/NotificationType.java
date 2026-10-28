@@ -10,7 +10,8 @@ public enum NotificationType {
     NETWORK,
     STOCK_REQUEST,
     BOUTIQUE_REQUEST,
-    ORDER;
+    ORDER,
+    PAYMENT;
 
     public String apiValue() {
         return name().toLowerCase();

@@ -66,6 +66,7 @@ public class StockServiceImpl implements StockService {
                 .transactionMode(transactionMode)
                 .retailPrice(retailPrice)
                 .marketPrice(marketPrice)
+                .sourceSupplyRequestId(sourceSupplyRequestId)
                 .build();
 
         CommissionRule commissionRule = mapCommissionRule(commissionRuleRequest);
@@ -116,9 +117,7 @@ public class StockServiceImpl implements StockService {
                 .quantitySold(quantitySold)
                 .unitPrice(stock.getRetailPrice())
                 .soldBy(soldBy)
-                .settlementStatus(stock.getTransactionMode() == TransactionMode.CONSIGNMENT
-                        ? SettlementStatus.UNSETTLED
-                        : SettlementStatus.SETTLED)
+                .settlementStatus(owesSource(stock) ? SettlementStatus.UNSETTLED : SettlementStatus.SETTLED)
                 .build();
         return stockActivityRepository.save(activity);
     }
@@ -172,5 +171,15 @@ public class StockServiceImpl implements StockService {
         return stockRepository.findByProduct_IdAndStore_Id(productId, storeId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Stock not found for product %d at store %d".formatted(productId, storeId)));
+    }
+
+    /**
+     * A product created by another store was received from it (supply request), so the sale is owed to that store
+     * until it records a payment (ResellerSettlementService); the store's own consignment stock stays unsettled as before.
+     */
+    private static boolean owesSource(Stock stock) {
+        Long ownerStoreId = stock.getProduct().getStoreId();
+        boolean resold = ownerStoreId != null && !ownerStoreId.equals(stock.getStore().getId());
+        return resold || stock.getTransactionMode() == TransactionMode.CONSIGNMENT;
     }
 }

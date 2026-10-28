@@ -6,5 +6,7 @@ import java.util.List;
 public record ResellerActivityResponse(
         List<ResellerSummary> resellers,
         List<ResellerSaleLine> activities,
+        List<ResellerPaymentResponse> payments,
+        BigDecimal totalPaid,
         BigDecimal totalOwedUnsettled
 ) {}

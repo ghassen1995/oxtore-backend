@@ -34,4 +34,12 @@ public interface StockActivityRepository extends JpaRepository<StockActivity, Lo
                                           @Param("resellerStoreId") Long resellerStoreId,
                                           @Param("from") LocalDateTime from,
                                           @Param("to") LocalDateTime to);
+
+    /** Sales made by the reseller store of products created by other stores, oldest first. */
+    @Query("""
+            select a from StockActivity a join fetch a.stock s join fetch s.product p join fetch s.store st
+            where st.id = :resellerStoreId and p.storeId is not null and p.storeId <> :resellerStoreId
+            order by a.soldAt asc, a.id asc
+            """)
+    List<StockActivity> findSalesOfSourcedProducts(@Param("resellerStoreId") Long resellerStoreId);
 }

@@ -11,6 +11,7 @@ import com.oxtore.backend.stock.entity.Stock;
 import com.oxtore.backend.stock.entity.StockActivity;
 import com.oxtore.backend.stock.enums.SettlementStatus;
 import com.oxtore.backend.stock.enums.SupplyRequestStatus;
+import com.oxtore.backend.stock.repository.ResellerPaymentRepository;
 import com.oxtore.backend.stock.repository.StockActivityRepository;
 import com.oxtore.backend.stock.repository.StockRepository;
 import com.oxtore.backend.stock.repository.SupplyRequestRepository;
@@ -25,6 +26,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +45,8 @@ public class ResellerActivityServiceImpl implements ResellerActivityService {
     private final SupplyRequestRepository supplyRequestRepository;
     private final IdentityRepository identityRepository;
     private final ImageUrlResolver imageUrlResolver;
+    private final ResellerPaymentRepository resellerPaymentRepository;
+    private final ResellerSettlementService resellerSettlementService;
 
     private record Key(Long resellerStoreId, Long productId) {}
 
@@ -53,6 +57,7 @@ public class ResellerActivityServiceImpl implements ResellerActivityService {
         int received;
         int sold;
         int remaining;
+        /** All-time, like the balance: what is still unpaid on this product's sales. */
         BigDecimal owed = BigDecimal.ZERO;
     }
 
@@ -65,8 +70,16 @@ public class ResellerActivityServiceImpl implements ResellerActivityService {
         LocalDateTime toTime = to != null ? to.plusDays(1).atStartOfDay() : MAX_DATE;
 
         List<Stock> resellerStocks = stockRepository.findResellerStocks(sourceStoreId, resellerStoreId);
-        List<StockActivity> sales = stockActivityRepository
-                .findResellerSales(sourceStoreId, resellerStoreId, fromTime, toTime);
+        // The balance is all-time: payments settle the oldest sales, whatever period is shown.
+        List<StockActivity> allSales = stockActivityRepository
+                .findResellerSales(sourceStoreId, resellerStoreId, MIN_DATE, MAX_DATE);
+        List<StockActivity> sales = allSales.stream()
+                .filter(a -> !a.getSoldAt().isBefore(fromTime) && a.getSoldAt().isBefore(toTime))
+                .toList();
+        Map<Long, BigDecimal> paidByReseller = ResellerSettlementService.paidByReseller(
+                resellerPaymentRepository.findForSource(sourceStoreId, resellerStoreId));
+        Map<Long, BigDecimal> unpaid = ResellerSettlementService.unpaidBySale(allSales, paidByReseller);
+        Map<Long, BigDecimal> salesByReseller = new HashMap<>();
 
         Map<Key, Line> lines = new LinkedHashMap<>();
         for (Stock stock : resellerStocks) {
@@ -88,19 +101,21 @@ public class ResellerActivityServiceImpl implements ResellerActivityService {
                 .stream()
                 .collect(Collectors.toMap(User::getId, u -> u.getFirstName() + " " + u.getLastName()));
 
+        for (StockActivity sale : allSales) {
+            Line line = lineFor(lines, sale.getStock());
+            line.owed = line.owed.add(unpaid.get(sale.getId()));
+            salesByReseller.merge(sale.getStock().getStore().getId(),
+                    ResellerSettlementService.lineTotal(sale), BigDecimal::add);
+        }
+
         List<ResellerSaleLine> activities = new ArrayList<>(sales.size());
-        BigDecimal totalOwed = BigDecimal.ZERO;
         for (StockActivity sale : sales) {
             Stock stock = sale.getStock();
             BigDecimal unitPrice = sale.getUnitPrice() != null ? sale.getUnitPrice() : BigDecimal.ZERO;
-            BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(sale.getQuantitySold()));
+            BigDecimal lineTotal = ResellerSettlementService.lineTotal(sale);
 
             Line line = lineFor(lines, stock);
             line.sold += sale.getQuantitySold();
-            if (sale.getSettlementStatus() == SettlementStatus.UNSETTLED) {
-                line.owed = line.owed.add(lineTotal);
-                totalOwed = totalOwed.add(lineTotal);
-            }
 
             activities.add(new ResellerSaleLine(
                     sale.getId(),
@@ -113,19 +128,24 @@ public class ResellerActivityServiceImpl implements ResellerActivityService {
                     unitPrice,
                     lineTotal,
                     sellerNames.getOrDefault(sale.getSoldBy(), ""),
-                    sale.getSettlementStatus()));
+                    unpaid.get(sale.getId()).signum() > 0 ? SettlementStatus.UNSETTLED : SettlementStatus.SETTLED));
         }
 
         Map<Long, List<Line>> byReseller = lines.values().stream()
                 .collect(Collectors.groupingBy(l -> l.reseller.getId(), LinkedHashMap::new, Collectors.toList()));
 
         List<ResellerSummary> resellers = byReseller.values().stream()
-                .map(this::toSummary)
+                .map(l -> toSummary(l, salesByReseller, paidByReseller))
                 .sorted(Comparator.comparing(ResellerSummary::resellerStoreName,
                         Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
 
-        return new ResellerActivityResponse(resellers, activities, totalOwed);
+        BigDecimal totalOwed = resellers.stream().map(ResellerSummary::owedUnsettled)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalPaid = resellers.stream().map(ResellerSummary::totalPaid)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new ResellerActivityResponse(resellers, activities,
+                resellerSettlementService.paymentsForSource(sourceStoreId, resellerStoreId), totalPaid, totalOwed);
     }
 
     private static Line lineFor(Map<Key, Line> lines, Stock stock) {
@@ -136,7 +156,8 @@ public class ResellerActivityServiceImpl implements ResellerActivityService {
         return line;
     }
 
-    private ResellerSummary toSummary(List<Line> lines) {
+    private ResellerSummary toSummary(List<Line> lines, Map<Long, BigDecimal> salesByReseller,
+                                      Map<Long, BigDecimal> paidByReseller) {
         Store reseller = lines.get(0).reseller;
         List<ResellerProductLine> products = lines.stream()
                 .sorted(Comparator.comparing((Line l) -> l.product.getProductName(),
@@ -152,6 +173,9 @@ public class ResellerActivityServiceImpl implements ResellerActivityService {
                 .toList();
         int totalSold = lines.stream().mapToInt(l -> l.sold).sum();
         BigDecimal owed = lines.stream().map(l -> l.owed).reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new ResellerSummary(reseller.getId(), reseller.getStoreName(), products, totalSold, owed);
+        return new ResellerSummary(reseller.getId(), reseller.getStoreName(), products, totalSold,
+                salesByReseller.getOrDefault(reseller.getId(), BigDecimal.ZERO),
+                paidByReseller.getOrDefault(reseller.getId(), BigDecimal.ZERO),
+                owed);
     }
 }

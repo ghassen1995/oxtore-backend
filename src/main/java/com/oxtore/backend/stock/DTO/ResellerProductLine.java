@@ -2,7 +2,7 @@ package com.oxtore.backend.stock.DTO;
 
 import java.math.BigDecimal;
 
-/** One product held by one reseller. owedUnsettled is computed (quantity x unit price of UNSETTLED sales), never stored. */
+/** One product held by one reseller. owedUnsettled is what is still unpaid on its sales (all-time), never stored. */
 public record ResellerProductLine(
         Long productId,
         String productName,
