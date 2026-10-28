@@ -20,4 +20,12 @@ public class NotificationRecipients {
                 .map(StoreStaff::getUserId)
                 .toList();
     }
+
+    /** Supervisors and managers: the people who handle the store's marketplace orders. */
+    public List<Long> managersOf(Long storeId) {
+        return storeStaffRepository.findAllByStoreId(storeId).stream()
+                .filter(s -> s.getRole() == StaffRole.SUPERVISOR || s.getRole() == StaffRole.MANAGER)
+                .map(StoreStaff::getUserId)
+                .toList();
+    }
 }
