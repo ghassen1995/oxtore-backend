@@ -53,6 +53,19 @@ public class Store {
     @Column(name = "logo", length = 255)
     private String logo;
 
+    /** ISO 4217 code of the boutique's prices; null for boutiques created before it was stored (reported as TND). */
+    @Column(name = "currency", length = 3)
+    private String currency;
+
+    /** "fr" / "en" / "ar"; null = not chosen. */
+    @Column(name = "language", length = 2)
+    private String language;
+
+    /** Whether non-members see the phone number. Members and the platform admin always do. */
+    @Column(name = "show_phone", nullable = false, columnDefinition = "boolean default true")
+    @Builder.Default
+    private boolean showPhone = true;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

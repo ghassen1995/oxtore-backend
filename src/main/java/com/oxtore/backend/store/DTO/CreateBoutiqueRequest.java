@@ -2,6 +2,7 @@ package com.oxtore.backend.store.DTO;
 
 import java.util.List;
 
+/** showPhone: whether non-members see the phone number (default true). */
 public record CreateBoutiqueRequest(String name, String address, String phone, String description,
                                     String language, String currency, List<String> categories,
-                                    String logo) {}
+                                    String logo, Boolean showPhone) {}

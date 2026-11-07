@@ -24,24 +24,33 @@ public class BoutiqueRelationAdapterController {
     private final ResellerRelationService service;
     private final StoreAccess storeAccess;
 
-    /** Partnerships of a boutique the caller works at (any role), or of all the caller's boutiques. */
+    /**
+     * Active partnerships of a boutique the caller works at (any role), or of all the caller's boutiques. For a
+     * boutique the caller doesn't work at (e.g. a seller, to know whether its consignment offers may be ordered),
+     * only its partnerships with the caller's own boutiques are returned.
+     */
     @GetMapping
     public ResponseEntity<Map<String, Object>> findAll(@RequestParam(required = false) String boutiqueId,
                                                        HttpServletRequest http) {
         Long userId = StoreAccess.currentUserId(http);
+        List<Long> mine = storeAccess.memberStoreIds(userId);
         List<Long> ids;
+        boolean outsider = false;
         if (boutiqueId != null) {
             ids = List.of(Long.valueOf(boutiqueId));
-            storeAccess.requireMemberOfAll(userId, ids);
+            outsider = !mine.contains(ids.get(0));
         } else {
-            ids = storeAccess.memberStoreIds(userId);
+            ids = mine;
         }
         List<ResellerRelation> relations = ids.isEmpty()
                 ? List.of()
                 : repository.findBySourceStore_IdInOrResellerStore_IdIn(ids, ids);
+        boolean onlyWithMine = outsider;
 
         List<BoutiqueRelationResponse> data = relations.stream()
                 .filter(r -> r.getStatus() == ResellerRelationStatus.ACCEPTED)
+                .filter(r -> !onlyWithMine || mine.contains(r.getSourceStore().getId())
+                        || mine.contains(r.getResellerStore().getId()))
                 .map(this::toRelationResponse)
                 .toList();
 

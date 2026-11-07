@@ -37,6 +37,8 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // CORS preflights never need a token
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // Public auth endpoints, POST only. Everything else under /api/auth (e.g. complete-profile)
                         // and /api/users/** requires a token.
                         .requestMatchers(HttpMethod.POST,
@@ -49,6 +51,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.HEAD, "/uploads/**").permitAll()
                         // Health check for monitoring and deploy scripts: status only, details are hidden
                         .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                        // Currencies etc., needed before sign-in
+                        .requestMatchers(HttpMethod.GET, "/api/config/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 // Missing, expired or invalid token → 401 (not Spring's default 403), so the app's interceptor knows
@@ -66,13 +70,17 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+        // Wide open: any origin (web, localhost, capacitor://, file://...), any method, any header.
+        // The origin is echoed back, so this also works for requests sent with credentials.
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(List.of("*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(List.of("*"));
         configuration.setAllowedHeaders(List.of("*"));
-        // Lets the app read the OTP resend cooldown from 429 responses.
-        configuration.setExposedHeaders(List.of("Retry-After"));
-        configuration.setAllowCredentials(false);
+        // "*" is taken literally by browsers on credentialed requests, so the headers the app reads are named too
+        // (Retry-After: OTP resend cooldown on 429).
+        configuration.setExposedHeaders(List.of("*", "Retry-After", "Content-Disposition"));
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

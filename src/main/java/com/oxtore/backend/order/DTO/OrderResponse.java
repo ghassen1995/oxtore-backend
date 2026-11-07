@@ -21,6 +21,8 @@ public record OrderResponse(
         BigDecimal subtotal,
         BigDecimal deliveryFee,
         BigDecimal total,
+        /** ISO 4217 code of every amount of this order (the boutique's currency). */
+        String currency,
         int itemCount,
         String rejectionReason,
         LocalDateTime createdAt,

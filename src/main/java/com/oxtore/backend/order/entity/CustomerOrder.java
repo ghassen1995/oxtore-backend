@@ -65,13 +65,13 @@ public class CustomerOrder {
     @Column(name = "note", length = 500)
     private String note;
 
-    @Column(name = "subtotal", nullable = false, precision = 15, scale = 2)
+    @Column(name = "subtotal", nullable = false, precision = 15, scale = 3)
     private BigDecimal subtotal;
 
-    @Column(name = "delivery_fee", nullable = false, precision = 15, scale = 2)
+    @Column(name = "delivery_fee", nullable = false, precision = 15, scale = 3)
     private BigDecimal deliveryFee;
 
-    @Column(name = "total", nullable = false, precision = 15, scale = 2)
+    @Column(name = "total", nullable = false, precision = 15, scale = 3)
     private BigDecimal total;
 
     @Column(name = "rejection_reason", length = 255)

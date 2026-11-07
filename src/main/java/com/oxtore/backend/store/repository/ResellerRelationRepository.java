@@ -20,6 +20,9 @@ public interface ResellerRelationRepository extends JpaRepository<ResellerRelati
 
     Optional<ResellerRelation> findBySourceStore_IdAndResellerStore_Id(Long sourceStoreId, Long resellerStoreId);
 
+    /** Every row of a pair, declined / revoked history included. */
+    List<ResellerRelation> findAllBySourceStore_IdAndResellerStore_Id(Long sourceStoreId, Long resellerStoreId);
+
     List<ResellerRelation> findBySourceStore_IdAndStatus(Long sourceStoreId, ResellerRelationStatus status);
 
     List<ResellerRelation> findByResellerStore_IdAndStatus(Long resellerStoreId, ResellerRelationStatus status);

@@ -31,12 +31,12 @@ public class CustomerOrderItem {
     @Column(name = "product_name", nullable = false)
     private String productName;
 
-    @Column(name = "unit_price", nullable = false, precision = 15, scale = 2)
+    @Column(name = "unit_price", nullable = false, precision = 15, scale = 3)
     private BigDecimal unitPrice;
 
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
-    @Column(name = "line_total", nullable = false, precision = 15, scale = 2)
+    @Column(name = "line_total", nullable = false, precision = 15, scale = 3)
     private BigDecimal lineTotal;
 }

@@ -35,6 +35,13 @@ public class ResellerRelation {
     @Column(name = "decided_by")
     private Long decidedBy;
 
+    /** Note sent with the partnership request. */
+    @Column(name = "message", length = 500)
+    private String message;
+
+    @Column(name = "rejection_reason", length = 255)
+    private String rejectionReason;
+
     private LocalDateTime requestedAt;
     private LocalDateTime decidedAt;
 

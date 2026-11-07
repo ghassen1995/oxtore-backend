@@ -30,7 +30,7 @@ public class ResellerPayment {
     @JoinColumn(name = "reseller_store_id", nullable = false)
     private Store resellerStore;
 
-    @Column(name = "amount", nullable = false, precision = 15, scale = 2)
+    @Column(name = "amount", nullable = false, precision = 15, scale = 3)
     private BigDecimal amount;
 
     @Column(name = "note", length = 500)

@@ -1,6 +1,12 @@
 package com.oxtore.backend.order.service;
 
+import com.oxtore.backend.common.config.CurrencyCatalog;
+import com.oxtore.backend.common.error.ApiException;
 import com.oxtore.backend.common.security.StoreAccess;
+import com.oxtore.backend.common.validation.InputRules;
+import com.oxtore.backend.store.entity.Store;
+import com.oxtore.backend.store.service.StoreRelations;
+import org.springframework.http.HttpStatus;
 import com.oxtore.backend.notification.enums.NotificationType;
 import com.oxtore.backend.notification.service.NotificationRecipients;
 import com.oxtore.backend.notification.service.NotificationService;
@@ -13,7 +19,6 @@ import com.oxtore.backend.order.enums.PaymentMethod;
 import com.oxtore.backend.order.repository.CustomerOrderRepository;
 import com.oxtore.backend.product.entity.Product;
 import com.oxtore.backend.product.enums.ProductStatus;
-import com.oxtore.backend.product.enums.SaleType;
 import com.oxtore.backend.stock.entity.Stock;
 import com.oxtore.backend.stock.repository.StockRepository;
 import com.oxtore.backend.stock.service.StockService;
@@ -26,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,36 +55,54 @@ public class OrderService {
     private final NotificationService notificationService;
     private final NotificationRecipients notificationRecipients;
     private final ImageUrlResolver imageUrlResolver;
+    private final StoreRelations storeRelations;
+    private final CurrencyCatalog currencyCatalog;
 
     // ─── Buyer ────────────────────────────────────────────────────────
 
-    /** One order per boutique in the cart, all or nothing. */
+    /**
+     * One order per boutique in the cart, all or nothing: if any line fails (unavailable, out of stock, consignment
+     * not allowed) nothing is created and the error names the line ({@code field: "items[i]"}). Prices and the
+     * delivery fee are computed here; the client's {@code deliveryFee} is only an estimate and is ignored for
+     * boutiques whose currency is known.
+     */
     @Transactional
     public List<OrderResponse> place(Long buyerId, PlaceOrderRequest request) {
         if (request == null || request.items() == null || request.items().isEmpty()) {
-            throw new IllegalArgumentException("Your cart is empty");
+            throw ApiException.validation("items", "Your cart is empty");
         }
-        String name = required(request.customerName(), "Full name", 100);
-        String phone = required(request.customerPhone(), "Phone number", 30);
-        String city = required(request.city(), "City", 100);
-        String address = required(request.address(), "Address", 255);
-        String note = optional(request.note(), "Note", 500);
-        PaymentMethod paymentMethod = PaymentMethod.fromApi(request.paymentMethod());
-        BigDecimal deliveryFee = request.deliveryFee() == null ? BigDecimal.ZERO : request.deliveryFee();
-        if (deliveryFee.signum() < 0) throw new IllegalArgumentException("Delivery fee can't be negative");
+        String name = InputRules.personName(request.customerName(), "customerName", "Full name", true);
+        String phone = InputRules.phone(request.customerPhone(), "customerPhone", true);
+        String city = InputRules.text(request.city(), "city", "City", 100, true);
+        String address = InputRules.text(request.address(), "address", "Address", 255, true);
+        String note = InputRules.text(request.note(), "note", "Note", 500, false);
+        PaymentMethod paymentMethod;
+        try {
+            paymentMethod = PaymentMethod.fromApi(request.paymentMethod());
+        } catch (IllegalArgumentException e) {
+            throw ApiException.validation("paymentMethod", String.valueOf(e.getMessage()));
+        }
+        BigDecimal clientFee = request.deliveryFee() == null ? BigDecimal.ZERO : request.deliveryFee();
+        if (clientFee.signum() < 0) throw ApiException.validation("deliveryFee", "Delivery fee can't be negative");
 
-        // boutiqueId → (productId → quantity), in cart order, the same product added twice merged
+        // boutiqueId -> (productId -> quantity), in cart order, the same product added twice merged;
+        // lineIndex keeps the first request index of each (boutique, product) line for error reporting.
         Map<Long, Map<Long, Integer>> byStore = new LinkedHashMap<>();
-        for (PlaceOrderRequest.Item item : request.items()) {
+        Map<String, Integer> lineIndex = new HashMap<>();
+        for (int i = 0; i < request.items().size(); i++) {
+            PlaceOrderRequest.Item item = request.items().get(i);
             if (item == null || item.productId() == null || item.boutiqueId() == null) {
-                throw new IllegalArgumentException("Each item needs a product and a boutique");
+                throw ApiException.validation("items[" + i + "]", "Each item needs a product and a boutique");
             }
             if (item.quantity() == null || item.quantity() <= 0) {
-                throw new IllegalArgumentException("Quantity must be at least 1");
+                throw ApiException.validation("items[" + i + "]", "Quantity must be at least 1");
             }
             byStore.computeIfAbsent(item.boutiqueId(), k -> new LinkedHashMap<>())
                     .merge(item.productId(), item.quantity(), Integer::sum);
+            lineIndex.putIfAbsent(item.boutiqueId() + ":" + item.productId(), i);
         }
+
+        StoreRelations.View buyer = storeRelations.forUser(buyerId);
 
         List<CustomerOrder> orders = new ArrayList<>();
         for (Map.Entry<Long, Map<Long, Integer>> storeEntry : byStore.entrySet()) {
@@ -92,12 +116,17 @@ public class OrderService {
                     .deliveryCity(city)
                     .deliveryAddress(address)
                     .note(note)
-                    .deliveryFee(deliveryFee)
                     .build();
 
             BigDecimal subtotal = BigDecimal.ZERO;
             for (Map.Entry<Long, Integer> line : storeEntry.getValue().entrySet()) {
-                Stock stock = orderableStock(line.getKey(), storeEntry.getKey(), line.getValue());
+                String field = "items[" + lineIndex.get(storeEntry.getKey() + ":" + line.getKey()) + "]";
+                Stock stock = orderableStock(line.getKey(), storeEntry.getKey(), line.getValue(), field);
+                if (!buyer.canOrder(stock)) {
+                    throw new ApiException(HttpStatus.FORBIDDEN, "CONSIGNMENT_NOT_ALLOWED",
+                            "%s is reserved for partner resellers of %s".formatted(
+                                    stock.getProduct().getProductName(), stock.getStore().getStoreName()), field);
+                }
                 order.setStore(stock.getStore());
                 BigDecimal lineTotal = stock.getRetailPrice().multiply(BigDecimal.valueOf(line.getValue()));
                 order.addItem(CustomerOrderItem.builder()
@@ -109,6 +138,8 @@ public class OrderService {
                         .build());
                 subtotal = subtotal.add(lineTotal);
             }
+            BigDecimal deliveryFee = deliveryFee(order.getStore(), clientFee);
+            order.setDeliveryFee(deliveryFee);
             order.setSubtotal(subtotal);
             order.setTotal(subtotal.add(deliveryFee));
             orders.add(orderRepository.save(order));
@@ -126,6 +157,13 @@ public class OrderService {
                     meta(order, "store"));
         }
         return orders.stream().map(this::toResponse).toList();
+    }
+
+    /** The flat fee of the boutique's currency; the client's estimate only for boutiques with no stored currency. */
+    private BigDecimal deliveryFee(Store store, BigDecimal clientEstimate) {
+        return currencyCatalog.find(store.getCurrency())
+                .map(CurrencyCatalog.Currency::deliveryFee)
+                .orElse(clientEstimate);
     }
 
     @Transactional(readOnly = true)
@@ -161,7 +199,7 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public List<OrderResponse> listForStore(Long userId, Long storeId, String status) {
-        storeAccess.require(userId, storeId, StoreAccess.MANAGERS);
+        storeAccess.require(userId, storeId, StoreAccess.OPERATIONS);
         List<CustomerOrder> orders = status == null || status.isBlank() || status.equalsIgnoreCase("all")
                 ? orderRepository.findByStore_IdOrderByCreatedAtDesc(storeId)
                 : orderRepository.findByStore_IdAndStatusOrderByCreatedAtDesc(storeId, OrderStatus.fromApi(status));
@@ -170,7 +208,7 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public OrderResponse getForStore(Long userId, Long storeId, Long orderId) {
-        storeAccess.require(userId, storeId, StoreAccess.MANAGERS);
+        storeAccess.require(userId, storeId, StoreAccess.OPERATIONS);
         return toResponse(storesOrder(storeId, orderId));
     }
 
@@ -180,7 +218,7 @@ public class OrderService {
      */
     @Transactional
     public OrderResponse updateStatusByStore(Long userId, Long storeId, Long orderId, String status, String reason) {
-        storeAccess.require(userId, storeId, StoreAccess.MANAGERS);
+        storeAccess.require(userId, storeId, StoreAccess.OPERATIONS);
         CustomerOrder order = storesOrder(storeId, orderId);
         OrderStatus target = OrderStatus.fromApi(status);
         if (!order.getStatus().storeTransitions().contains(target)) {
@@ -218,17 +256,18 @@ public class OrderService {
 
     // ─── Helpers ──────────────────────────────────────────────────────
 
-    private Stock orderableStock(Long productId, Long storeId, int quantity) {
+    private Stock orderableStock(Long productId, Long storeId, int quantity, String field) {
         Stock stock = stockRepository.findByProduct_IdAndStore_Id(productId, storeId)
-                .filter(s -> s.getSaleType() == SaleType.RETAIL)
+                .filter(s -> s.getSaleType() != null && s.getSaleType().isRetail())
                 .filter(s -> s.getProduct().getStatus() != ProductStatus.ARCHIVED)
                 .filter(s -> s.getRetailPrice() != null)
-                .orElseThrow(() -> new IllegalArgumentException("A product in your cart is no longer available"));
+                .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "PRODUCT_UNAVAILABLE",
+                        "A product in your cart is no longer available", field));
         if (stock.getQuantity() < quantity) {
             Product p = stock.getProduct();
-            throw new IllegalArgumentException(stock.getQuantity() == 0
+            throw new ApiException(HttpStatus.CONFLICT, "OUT_OF_STOCK", stock.getQuantity() == 0
                     ? "%s is out of stock".formatted(p.getProductName())
-                    : "Only %d left of %s".formatted(stock.getQuantity(), p.getProductName()));
+                    : "Only %d left of %s".formatted(stock.getQuantity(), p.getProductName()), field);
         }
         return stock;
     }
@@ -316,6 +355,7 @@ public class OrderService {
                 o.getSubtotal(),
                 o.getDeliveryFee(),
                 o.getTotal(),
+                CurrencyCatalog.orDefault(o.getStore().getCurrency()),
                 itemCount(o),
                 o.getRejectionReason(),
                 o.getCreatedAt(),

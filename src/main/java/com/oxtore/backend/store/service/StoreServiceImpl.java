@@ -26,7 +26,8 @@ public class StoreServiceImpl implements StoreService {
     @Override
     public Store createStore(Store store, Long ownerId) {
         Store saved = storeRepository.save(store);
-        storeStaffService.addStaff(saved.getId(), ownerId, StaffRole.SUPERVISOR, ownerId);
+        // The creator runs the boutique: "Gestionnaire" in the app.
+        storeStaffService.addStaff(saved.getId(), ownerId, StaffRole.MANAGER, ownerId);
         return saved;
     }
 

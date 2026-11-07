@@ -46,10 +46,10 @@ public class Stock {
     @OneToOne(mappedBy = "stock", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private CommissionRule commissionRule;
 
-    @Column(name = "market_price", precision = 15, scale = 2)
+    @Column(name = "market_price", precision = 15, scale = 3)
     private BigDecimal marketPrice;
 
-    @Column(name = "retail_price", precision = 15, scale = 2)
+    @Column(name = "retail_price", precision = 15, scale = 3)
     private BigDecimal retailPrice;
 
     @Column(name = "created_at", updatable = false)

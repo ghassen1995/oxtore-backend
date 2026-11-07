@@ -25,7 +25,7 @@ public class StoreStaffController {
     private final StoreStaffService storeStaffService;
     private final StoreStaffMapper storeStaffMapper;
 
-    @RequireStoreRole(value = StaffRole.SUPERVISOR, pathParam = "storeId")
+    @RequireStoreRole(value = StaffRole.MANAGER, pathParam = "storeId")
     @PostMapping
     public ResponseEntity<StoreStaffResponse> addStaff(
             @PathVariable Long storeId,
@@ -38,7 +38,7 @@ public class StoreStaffController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(storeStaffMapper.toResponse(saved));
     }
-    @RequireStoreRole(value = StaffRole.SUPERVISOR, pathParam = "storeId")
+    @RequireStoreRole(value = StaffRole.MANAGER, pathParam = "storeId")
     @PatchMapping("/{userId}/role")
     public ResponseEntity<StoreStaffResponse> updateRole(
             @PathVariable Long storeId,
@@ -51,7 +51,7 @@ public class StoreStaffController {
         return ResponseEntity.ok(storeStaffMapper.toResponse(updated));
     }
 
-    @RequireStoreRole(value = StaffRole.SUPERVISOR, pathParam = "storeId")
+    @RequireStoreRole(value = StaffRole.MANAGER, pathParam = "storeId")
     @DeleteMapping("/{userId}")
     public ResponseEntity<Void> removeStaff(
             @PathVariable Long storeId,

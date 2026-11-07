@@ -42,6 +42,7 @@ public class StoreAuthorizationAspect {
         Long userId = resolveCurrentUserId();
 
         StoreStaff staff = storeStaffRepository.findByStore_IdAndUserId(storeId, userId)
+                .filter(StoreStaff::isActive)
                 .orElseThrow(() -> new AccessDeniedException(
                         "User %d is not staff of store %d".formatted(userId, storeId)));
 

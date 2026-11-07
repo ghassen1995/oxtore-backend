@@ -15,15 +15,18 @@ public class NotificationRecipients {
 
     private final StoreStaffRepository storeStaffRepository;
 
+    /** The boutique's active managers ("Gestionnaires"): partnership and supply requests. */
     public List<Long> supervisorsOf(Long storeId) {
-        return storeStaffRepository.findAllByStoreIdAndRole(storeId, StaffRole.SUPERVISOR).stream()
+        return storeStaffRepository.findAllByStoreIdAndRole(storeId, StaffRole.MANAGER).stream()
+                .filter(StoreStaff::isActive)
                 .map(StoreStaff::getUserId)
                 .toList();
     }
 
-    /** Supervisors and managers: the people who handle the store's marketplace orders. */
+    /** Managers and sales supervisors: the people who handle the store's marketplace orders. */
     public List<Long> managersOf(Long storeId) {
         return storeStaffRepository.findAllByStoreId(storeId).stream()
+                .filter(StoreStaff::isActive)
                 .filter(s -> s.getRole() == StaffRole.SUPERVISOR || s.getRole() == StaffRole.MANAGER)
                 .map(StoreStaff::getUserId)
                 .toList();

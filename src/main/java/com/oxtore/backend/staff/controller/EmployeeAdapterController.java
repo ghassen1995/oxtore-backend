@@ -54,8 +54,7 @@ public class EmployeeAdapterController {
                                                 @RequestBody AddEmployeeRequest req, HttpServletRequest http) {
         Long addedBy = StoreAccess.currentUserId(http);
         storeAccess.require(addedBy, boutiqueId, StoreAccess.MANAGERS);
-        // req.role must map SELLER->SALESMAN
-        StaffRole role = "SELLER".equals(req.role()) ? StaffRole.SELLER : StaffRole.valueOf(req.role());
+        StaffRole role = EmployeeController.parseRole(req.role() == null ? "SELLER" : req.role());
         StoreStaff saved = storeStaffService.addStaff(boutiqueId, req.userPublicId(), role, addedBy);
         User user = identityRepository.findById(saved.getUserId()).orElse(null);
         return ResponseEntity.status(201).body(toResponse(saved, user));
@@ -77,7 +76,7 @@ public class EmployeeAdapterController {
     }
 
     /** The mapper only knows StoreStaff; name/email/phone live on the User, so fill them in here. */
-    private EmployeeResponse toResponse(StoreStaff staff, User user) {
+    public EmployeeResponse toResponse(StoreStaff staff, User user) {
         EmployeeResponse base = mapper.toResponse(staff);
         if (user == null) return base;
         return new EmployeeResponse(

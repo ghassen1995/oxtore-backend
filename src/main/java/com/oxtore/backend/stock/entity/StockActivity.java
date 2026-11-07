@@ -26,7 +26,7 @@ public class StockActivity {
     @Column(name = "quantity_sold")
     Integer quantitySold;
 
-    @Column(name = "unit_price")
+    @Column(name = "unit_price", precision = 15, scale = 3)
     BigDecimal unitPrice;
 
     @Column(name = "sold_by")

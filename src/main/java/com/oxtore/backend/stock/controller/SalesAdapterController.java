@@ -88,7 +88,7 @@ public class SalesAdapterController {
     }
 
     private void requireStaff(Long boutiqueId, Long userId) {
-        if (storeStaffRepository.findByStore_IdAndUserId(boutiqueId, userId).isEmpty()) {
+        if (storeStaffRepository.findByStore_IdAndUserId(boutiqueId, userId).filter(s -> s.isActive()).isEmpty()) {
             throw new AccessDeniedException("User %d is not staff of store %d".formatted(userId, boutiqueId));
         }
     }

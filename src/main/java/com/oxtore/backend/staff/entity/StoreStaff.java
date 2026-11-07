@@ -39,6 +39,11 @@ public class StoreStaff {
     @Column(name = "role", nullable = false)
     private StaffRole role;
 
+    /** false = deactivated by a manager ("inactive" in the app): kept in the team list, but no rights in the boutique. */
+    @Column(name = "active", nullable = false, columnDefinition = "boolean default true")
+    @Builder.Default
+    private boolean active = true;
+
     @Column(name = "added_by", nullable = false, updatable = false)
     private Long addedBy; // userId of whoever added this staff member
 

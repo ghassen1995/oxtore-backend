@@ -1,15 +1,14 @@
 package com.oxtore.backend.staff.service;
 
+import com.oxtore.backend.common.error.ApiException;
 import com.oxtore.backend.notification.enums.NotificationType;
 import com.oxtore.backend.notification.service.NotificationService;
 import com.oxtore.backend.identity.entity.User;
 import com.oxtore.backend.identity.repository.IdentityRepository;
 import com.oxtore.backend.staff.entity.StoreStaff;
 import com.oxtore.backend.staff.enums.StaffRole;
-import com.oxtore.backend.staff.exceptions.InvalidStaffOperationException;
 import com.oxtore.backend.staff.exceptions.StaffAlreadyExistsException;
 import com.oxtore.backend.staff.exceptions.StaffNotFoundException;
-import com.oxtore.backend.staff.exceptions.SupervisorAlreadyExistsException;
 import com.oxtore.backend.staff.repository.StoreStaffRepository;
 import com.oxtore.backend.store.entity.Store;
 import com.oxtore.backend.store.repository.StoreRepository;
@@ -22,6 +21,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Boutique teams. Any role can be given or changed (MANAGER, SUPERVISOR, SELLER), as long as the boutique keeps at
+ * least one active MANAGER; the creator starts as its MANAGER.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -44,17 +47,9 @@ public class StoreStaffServiceImpl implements StoreStaffService {
     @Transactional
     @Override
     public StoreStaff addStaff(Long storeId, Long userId, StaffRole role, Long addedBy) {
-
-        //ToDo: updatedBy must be the store owner
-
         if (storeStaffRepository.existsByStoreIdAndUserId(storeId, userId)) {
             throw new StaffAlreadyExistsException(
                     "User " + userId + " is already a staff member of store " + storeId);
-        }
-
-        if (role == StaffRole.SUPERVISOR && storeStaffRepository.existsByStoreIdAndRole(storeId, StaffRole.SUPERVISOR)) {
-            throw new SupervisorAlreadyExistsException(
-                    "Store " + storeId + " already has a supervisor");
         }
 
         Store store = storeRepository.findById(storeId).orElseThrow(() -> new EntityNotFoundException("Store was not found : " + storeId));
@@ -79,10 +74,11 @@ public class StoreStaffServiceImpl implements StoreStaffService {
         return saved;
     }
 
+    /** Same labels as the app (fr.json auth.roles). */
     private static String roleLabelFr(StaffRole role) {
         return switch (role) {
-            case SUPERVISOR -> "superviseur";
-            case MANAGER -> "gérant";
+            case MANAGER -> "gestionnaire";
+            case SUPERVISOR -> "responsable des ventes";
             case SELLER -> "vendeur";
         };
     }
@@ -90,41 +86,67 @@ public class StoreStaffServiceImpl implements StoreStaffService {
     @Transactional
     @Override
     public StoreStaff updateRole(Long storeId, Long userId, StaffRole newRole, Long updatedBy) {
-
-        //ToDo: updatedBy must be the store owner
-
         StoreStaff staff = storeStaffRepository.findByStoreIdAndUserId(storeId, userId)
                 .orElseThrow(() -> new StaffNotFoundException(
                         "Staff member not found for storeId=" + storeId + " userId=" + userId));
-
-        if (staff.getRole() == StaffRole.SUPERVISOR) {
-            throw new InvalidStaffOperationException("Supervisor role cannot be changed");
-        }
-
-        if (newRole == StaffRole.SUPERVISOR) {
-            throw new InvalidStaffOperationException("Cannot promote to supervisor via role update");
-        }
-
-        staff.setRole(newRole);
-        return storeStaffRepository.save(staff);
+        return updateMember(staff.getId(), newRole, null, updatedBy);
     }
 
     @Transactional
     @Override
     public void removeStaff(Long storeId, Long userId, Long removedBy) {
-
-        //ToDo: updatedBy must be the store owner
-
         StoreStaff staff = storeStaffRepository.findByStoreIdAndUserId(storeId, userId)
                 .orElseThrow(() -> new StaffNotFoundException(
                         "Staff member not found for storeId=" + storeId + " userId=" + userId));
+        removeMember(staff.getId(), removedBy);
+    }
 
-        if (staff.getRole() == StaffRole.SUPERVISOR) {
-            throw new InvalidStaffOperationException("Supervisor cannot be removed from a store");
+    @Transactional
+    @Override
+    public StoreStaff updateMember(Long staffId, StaffRole newRole, Boolean active, Long updatedBy) {
+        StoreStaff staff = storeStaffRepository.findById(staffId)
+                .orElseThrow(() -> ApiException.notFound("EMPLOYEE_NOT_FOUND", "Team member not found"));
+
+        boolean losesManager = staff.getRole() == StaffRole.MANAGER && staff.isActive()
+                && ((newRole != null && newRole != StaffRole.MANAGER) || Boolean.FALSE.equals(active));
+        if (losesManager) requireAnotherManager(staff);
+
+        StaffRole previous = staff.getRole();
+        if (newRole != null) staff.setRole(newRole);
+        if (active != null) staff.setActive(active);
+        StoreStaff saved = storeStaffRepository.save(staff);
+
+        if (newRole != null && newRole != previous) {
+            notificationService.notify(
+                    List.of(saved.getUserId()),
+                    updatedBy,
+                    NotificationType.HR,
+                    "Nouveau rôle",
+                    "Vous êtes maintenant %s de %s".formatted(roleLabelFr(newRole), saved.getStore().getStoreName()),
+                    "people-outline",
+                    java.util.Map.of("storeId", String.valueOf(saved.getStore().getId())));
         }
+        return saved;
+    }
+
+    @Transactional
+    @Override
+    public void removeMember(Long staffId, Long removedBy) {
+        StoreStaff staff = storeStaffRepository.findById(staffId)
+                .orElseThrow(() -> ApiException.notFound("EMPLOYEE_NOT_FOUND", "Team member not found"));
+        if (staff.getRole() == StaffRole.MANAGER && staff.isActive()) requireAnotherManager(staff);
 
         storeStaffRepository.delete(staff);
-        log.info("Staff member userId={} removed from storeId={} by userId={}", userId, storeId, removedBy);
+        log.info("Staff member userId={} removed from storeId={} by userId={}",
+                staff.getUserId(), staff.getStore().getId(), removedBy);
+    }
+
+    /** 422 LAST_MANAGER when {@code staff} is the boutique's only active manager. */
+    private void requireAnotherManager(StoreStaff staff) {
+        long managers = storeStaffRepository.countByStore_IdAndRoleAndActiveTrue(staff.getStore().getId(), StaffRole.MANAGER);
+        if (managers <= 1) {
+            throw ApiException.unprocessable("LAST_MANAGER", "A shop needs at least one manager");
+        }
     }
 
     @Transactional(readOnly = true)

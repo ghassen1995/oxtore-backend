@@ -1,5 +1,6 @@
 package com.oxtore.backend.store.service;
 
+import com.oxtore.backend.common.error.ApiException;
 import com.oxtore.backend.notification.enums.NotificationType;
 import com.oxtore.backend.notification.service.NotificationRecipients;
 import com.oxtore.backend.notification.service.NotificationService;
@@ -8,7 +9,6 @@ import com.oxtore.backend.store.entity.Store;
 import com.oxtore.backend.store.enums.ResellerRelationStatus;
 import com.oxtore.backend.store.repository.ResellerRelationRepository;
 import com.oxtore.backend.store.repository.StoreRepository;
-import com.sun.jdi.request.InvalidRequestStateException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
@@ -30,23 +30,25 @@ public class ResellerRelationServiceImpl implements ResellerRelationService {
 
     @Override
     @Transactional
-    public ResellerRelation createRequest(Long sourceStoreId, Long resellerStoreId, Long requestedBy) {
+    public ResellerRelation createRequest(Long sourceStoreId, Long resellerStoreId, Long requestedBy, String message) {
         if (sourceStoreId.equals(resellerStoreId)) {
-            throw new IllegalArgumentException("A store cannot be its own reseller");
+            throw ApiException.unprocessable("SAME_SHOP", "A shop can't send a partnership request to itself");
         }
 
         Store sourceStore = storeRepository.findById(sourceStoreId)
-                .orElseThrow(() -> new EntityNotFoundException("Source store not found: " + sourceStoreId));
+                .orElseThrow(() -> ApiException.notFound("BOUTIQUE_NOT_FOUND", "Boutique not found").at("toBoutiqueId"));
 
         Store resellerStore = storeRepository.findById(resellerStoreId)
-                .orElseThrow(() -> new EntityNotFoundException("Reseller store not found: " + resellerStoreId));
+                .orElseThrow(() -> ApiException.notFound("BOUTIQUE_NOT_FOUND", "Boutique not found").at("fromBoutiqueId"));
 
-        resellerRelationRepository.findBySourceStore_IdAndResellerStore_Id(sourceStoreId, resellerStoreId)
-                .ifPresent(existing -> {
-                    if (existing.getStatus() == ResellerRelationStatus.ACCEPTED
-                            || existing.getStatus() == ResellerRelationStatus.PENDING) {
-                        throw new IllegalStateException(
-                                "A relation already exists between these stores with status: " + existing.getStatus());
+        // Several rows may exist for a pair (declined / revoked ones are kept); only a live one blocks a new request.
+        resellerRelationRepository.findAllBySourceStore_IdAndResellerStore_Id(sourceStoreId, resellerStoreId)
+                .forEach(existing -> {
+                    if (existing.getStatus() == ResellerRelationStatus.PENDING) {
+                        throw ApiException.conflict("REQUEST_ALREADY_PENDING", "A request to this shop is already pending");
+                    }
+                    if (existing.getStatus() == ResellerRelationStatus.ACCEPTED) {
+                        throw ApiException.conflict("ALREADY_PARTNERS", "You are already a partner of this shop");
                     }
                 });
 
@@ -55,6 +57,7 @@ public class ResellerRelationServiceImpl implements ResellerRelationService {
                 .resellerStore(resellerStore)
                 .status(ResellerRelationStatus.PENDING)
                 .requestedBy(requestedBy)
+                .message(message)
                 .build();
 
         ResellerRelation saved = resellerRelationRepository.save(relation);
@@ -72,17 +75,19 @@ public class ResellerRelationServiceImpl implements ResellerRelationService {
 
     @Override
     @Transactional
-    public ResellerRelation decide(Long relationId, Long sourceStoreId, boolean accept, Long decidedBy) {
+    public ResellerRelation decide(Long relationId, Long sourceStoreId, boolean accept, Long decidedBy,
+                                   String rejectionReason) {
 
         ResellerRelation relation = resellerRelationRepository.findByIdAndSourceStore_Id(relationId, sourceStoreId)
-                .orElseThrow(() -> new EntityNotFoundException("Reseller relation not found"));
+                .orElseThrow(() -> ApiException.notFound("REQUEST_NOT_FOUND", "Partnership request not found"));
 
         if (relation.getStatus() != ResellerRelationStatus.PENDING) {
-            throw new IllegalStateException(relation.getStatus().toString());
+            throw ApiException.conflict("REQUEST_NOT_PENDING", "This request was already answered");
         }
 
         relation.setStatus(accept ? ResellerRelationStatus.ACCEPTED : ResellerRelationStatus.DECLINED);
         relation.setDecidedBy(decidedBy);
+        if (!accept) relation.setRejectionReason(rejectionReason);
 
         ResellerRelation saved = resellerRelationRepository.save(relation);
         notificationService.notify(

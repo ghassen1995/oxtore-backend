@@ -25,4 +25,7 @@ public interface StoreStaffRepository extends JpaRepository<StoreStaff, Long> {
     Optional<StoreStaff> findByStore_IdAndUserId(Long storeId, Long userId);
 
     List<StoreStaff> findAllByUserId(Long userId);
+
+    /** Active managers of a boutique: there must always be at least one. */
+    long countByStore_IdAndRoleAndActiveTrue(Long storeId, StaffRole role);
 }

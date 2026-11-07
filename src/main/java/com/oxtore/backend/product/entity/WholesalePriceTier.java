@@ -25,6 +25,6 @@ public class WholesalePriceTier {
     @Column(name = "min_quantity", nullable = false)
     private Integer minQuantity;
 
-    @Column(name = "unit_price", nullable = false, precision = 15, scale = 2)
+    @Column(name = "unit_price", nullable = false, precision = 15, scale = 3)
     private BigDecimal unitPrice;
 }

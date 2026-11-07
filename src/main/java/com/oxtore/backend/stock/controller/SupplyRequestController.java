@@ -25,7 +25,7 @@ public class SupplyRequestController {
     private final SupplyRequestMapper supplyRequestMapper;
 
 
-    @RequireStoreRole(value = StaffRole.SUPERVISOR, storeIdSource = "body")
+    @RequireStoreRole(value = StaffRole.MANAGER, storeIdSource = "body")
     @PostMapping
     public ResponseEntity<SupplyRequestResponse> createRequest(
             @PathVariable Long sourceStoreId,
@@ -41,7 +41,7 @@ public class SupplyRequestController {
                 .body(supplyRequestMapper.toResponse(supplyRequest));
     }
 
-    @RequireStoreRole(value = StaffRole.SUPERVISOR, pathParam = "sourceStoreId")
+    @RequireStoreRole(value = StaffRole.MANAGER, pathParam = "sourceStoreId")
     @PatchMapping("/{requestId}/decision")
     public ResponseEntity<SupplyRequestResponse> decide(
             @PathVariable Long sourceStoreId,

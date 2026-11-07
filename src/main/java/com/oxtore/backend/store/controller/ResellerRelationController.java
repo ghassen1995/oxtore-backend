@@ -25,7 +25,7 @@ public class ResellerRelationController {
     private final ResellerRelationService resellerRelationService;
     private final ResellerRelationMapper resellerRelationMapper;
 
-    @RequireStoreRole(value = StaffRole.SUPERVISOR, storeIdSource = "body")
+    @RequireStoreRole(value = StaffRole.MANAGER, storeIdSource = "body")
     @PostMapping
     public ResponseEntity<ResellerRelationResponse> requestReseller(
             @PathVariable Long sourceStoreId,
@@ -40,7 +40,7 @@ public class ResellerRelationController {
                 .body(resellerRelationMapper.toResponse(relation));
     }
 
-    @RequireStoreRole(value = StaffRole.SUPERVISOR, pathParam = "sourceStoreId")
+    @RequireStoreRole(value = StaffRole.MANAGER, pathParam = "sourceStoreId")
     @PatchMapping("/{relationId}/decision")
     public ResponseEntity<ResellerRelationResponse> decide(
             @PathVariable Long sourceStoreId,

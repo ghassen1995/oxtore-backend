@@ -24,6 +24,13 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
 
     List<Stock> findBySaleType(SaleType saleType);
 
+    List<Stock> findBySaleTypeIn(java.util.Collection<SaleType> saleTypes);
+
+    List<Stock> findByStore_IdAndSaleTypeInAndTransactionMode(Long storeId, java.util.Collection<SaleType> saleTypes,
+                                                              TransactionMode transactionMode);
+
+    List<Stock> findByProduct_Id(Long productId);
+
     /** Items a store offers: its stock rows whose product isn't archived. */
     @Query("select count(s) from Stock s where s.store.id = :storeId and s.product.status <> com.oxtore.backend.product.enums.ProductStatus.ARCHIVED")
     long countActiveByStoreId(@Param("storeId") Long storeId);

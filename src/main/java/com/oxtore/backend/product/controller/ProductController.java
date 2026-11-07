@@ -25,7 +25,7 @@ public class ProductController {
         this.productMapper = productMapper;
     }
 
-    @RequireStoreRole(value = {StaffRole.SUPERVISOR}, storeIdSource = "body")
+    @RequireStoreRole(value = StaffRole.MANAGER, storeIdSource = "body")
     @PostMapping()
     public ResponseEntity<ProductResponse> addProduct(@Valid @RequestBody CreateProductRequest request) {
         Product product = productService.createProduct(request);

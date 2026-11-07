@@ -1,5 +1,6 @@
 package com.oxtore.backend.identity.service;
 
+import com.oxtore.backend.common.validation.InputRules;
 import com.oxtore.backend.identity.DTO.CompleteProfileRequest;
 import com.oxtore.backend.identity.DTO.TokenPairResponse;
 import com.oxtore.backend.identity.DTO.UpdateSettingsRequest;
@@ -126,7 +127,7 @@ public class IdentityServiceImpl implements IdentityService {
         }
 
         if (phone != null && !phone.isBlank()) {
-            user.setPhoneNumber(phone.trim());
+            user.setPhoneNumber(InputRules.normalizePhone(phone));
         }
 
         if (avatar != null && !avatar.isBlank() && !avatar.equals(imageUrlForStoredAvatar(user))) {

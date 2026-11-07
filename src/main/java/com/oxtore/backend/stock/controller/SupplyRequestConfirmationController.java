@@ -21,7 +21,7 @@ public class SupplyRequestConfirmationController {
     private final SupplyRequestService supplyRequestService;
     private final StockMapper stockMapper;
 
-    @RequireStoreRole(value = StaffRole.SUPERVISOR, pathParam = "resellerStoreId")
+    @RequireStoreRole(value = StaffRole.MANAGER, pathParam = "resellerStoreId")
     @PatchMapping("/{requestId}/confirm")
     public ResponseEntity<StockResponse> confirmArrival(
             @PathVariable Long resellerStoreId,

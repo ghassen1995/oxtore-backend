@@ -1,5 +1,7 @@
 package com.oxtore.backend.identity.controller;
 
+import com.oxtore.backend.common.error.ApiException;
+import com.oxtore.backend.staff.entity.StoreStaff;
 import com.oxtore.backend.identity.DTO.UpdateMeRequest;
 import com.oxtore.backend.identity.DTO.UpdateSettingsRequest;
 import com.oxtore.backend.identity.DTO.UserResponse;
@@ -37,9 +39,10 @@ public class UserProfileController {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
 
-        boolean isStaffThere = storeStaffRepository.findByStoreIdAndUserId(boutiqueId, userId).isPresent();
+        boolean isStaffThere = storeStaffRepository.findByStoreIdAndUserId(boutiqueId, userId)
+                .filter(StoreStaff::isActive).isPresent();
         if (!isStaffThere) {
-            throw new AccessDeniedException("Not staff of store " + boutiqueId);
+            throw ApiException.forbidden("NOT_SHOP_MEMBER", "You don't work at this boutique");
         }
 
         user.setActiveStoreId(boutiqueId);

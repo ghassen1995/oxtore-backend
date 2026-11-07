@@ -13,6 +13,6 @@ public interface EmployeeMapper {
     @Mapping(target = "email", ignore = true)
     @Mapping(target = "phone", ignore = true)
     @Mapping(target = "avatar", ignore = true)
-    @Mapping(target = "status", constant = "active")
+    @Mapping(target = "status", expression = "java(staff.isActive() ? \"active\" : \"inactive\")")
     EmployeeResponse toResponse(StoreStaff staff);
 }

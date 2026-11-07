@@ -21,7 +21,7 @@ public final class ActiveStores {
         Long chosen = user.getActiveStoreId();
         if (chosen != null && memberOf.contains(chosen)) return chosen;
         Long owned = memberships.stream()
-                .filter(s -> s.getRole() == StaffRole.SUPERVISOR)
+                .filter(s -> s.getRole() == StaffRole.MANAGER)
                 .map(s -> s.getStore().getId())
                 .sorted()
                 .findFirst()

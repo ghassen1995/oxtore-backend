@@ -15,13 +15,19 @@ import java.util.Set;
 /**
  * Per-boutique permission checks for controllers whose boutique id isn't a simple path variable or body field
  * (derived from an entity, a list of ids, either side of a relation), where @RequireStoreRole can't express it.
- * Failures throw AccessDeniedException, answered as 403.
+ * Failures throw AccessDeniedException, answered as 403. Deactivated members have no role anywhere.
+ * <p>
+ * Roles, as the app names them: MANAGER "Gestionnaire" (the creator, runs the boutique), SUPERVISOR "Responsable
+ * des ventes" (stock, orders, sales), SELLER "Vendeur" (sells).
  */
 @Component
 public class StoreAccess {
 
-    /** Boutique management: products, HR, network, stock requests. Sellers only sell. */
-    public static final Set<StaffRole> MANAGERS = EnumSet.of(StaffRole.SUPERVISOR, StaffRole.MANAGER);
+    /** Boutique management: edit the boutique, products, HR, network, stock requests. */
+    public static final Set<StaffRole> MANAGERS = EnumSet.of(StaffRole.MANAGER);
+
+    /** Day-to-day operations: stock, customer orders, reseller activity. */
+    public static final Set<StaffRole> OPERATIONS = EnumSet.of(StaffRole.MANAGER, StaffRole.SUPERVISOR);
 
     private final StoreStaffRepository storeStaffRepository;
 
@@ -63,10 +69,20 @@ public class StoreAccess {
 
     /** Boutiques the user works at, any role. */
     public List<Long> memberStoreIds(Long userId) {
-        return storeStaffRepository.findAllByUserId(userId).stream().map(s -> s.getStore().getId()).toList();
+        return storeStaffRepository.findAllByUserId(userId).stream()
+                .filter(StoreStaff::isActive)
+                .map(s -> s.getStore().getId()).toList();
     }
 
-    private StaffRole roleIn(Long userId, Long storeId) {
-        return storeStaffRepository.findByStore_IdAndUserId(storeId, userId).map(StoreStaff::getRole).orElse(null);
+    public boolean isMember(Long userId, Long storeId) {
+        return roleIn(userId, storeId) != null;
+    }
+
+    /** The user's role in the boutique, or null when they don't work there (or were deactivated). */
+    public StaffRole roleIn(Long userId, Long storeId) {
+        if (userId == null || storeId == null) return null;
+        return storeStaffRepository.findByStore_IdAndUserId(storeId, userId)
+                .filter(StoreStaff::isActive)
+                .map(StoreStaff::getRole).orElse(null);
     }
 }

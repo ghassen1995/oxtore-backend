@@ -11,6 +11,10 @@ public interface StoreStaffService {
     StoreStaff addStaff(Long storeId, Long userId, StaffRole role, Long addedBy);
     StoreStaff updateRole(Long storeId, Long userId, StaffRole newRole, Long updatedBy);
     void removeStaff(Long storeId, Long userId, Long removedBy);
+    /** PATCH /api/employees/{id}: new role and/or active flag (null = unchanged). Keeps at least one active manager. */
+    StoreStaff updateMember(Long staffId, StaffRole newRole, Boolean active, Long updatedBy);
+    /** DELETE /api/employees/{id}; the last active manager can't be removed. */
+    void removeMember(Long staffId, Long removedBy);
     List<StoreStaff> getStaffByStore(Long storeId);
     List<StoreStaff> getStaffByStoreAndRole(Long storeId, StaffRole role);
     Optional<StoreStaff> getStaffMember(Long storeId, Long userId);

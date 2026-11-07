@@ -1,6 +1,9 @@
 package com.oxtore.backend.product.controller;
 
+import com.oxtore.backend.common.error.ApiException;
 import com.oxtore.backend.product.entity.Product;
+import com.oxtore.backend.product.enums.ProductStatus;
+import com.oxtore.backend.product.repository.ProductRepository;
 import com.oxtore.backend.product.mapper.AngularProductShapeMapper;
 import com.oxtore.backend.product.service.ProductAdapterService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-/** /api/products/{id} as called by products.api.ts (update + delete). */
+/** /api/products/{id} as called by products.api.ts (read, update, delete). */
 @RestController
 @RequestMapping("/api/products")
 @RequiredArgsConstructor
@@ -19,6 +22,16 @@ public class ProductAdapterController {
 
     private final ProductAdapterService productAdapterService;
     private final AngularProductShapeMapper productShapeMapper;
+    private final ProductRepository productRepository;
+
+    /** Same shape as the boutique's product list; archived products are not found. */
+    @GetMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> get(@PathVariable("id") Long id) {
+        Product product = productRepository.findById(id)
+                .filter(p -> p.getStatus() != ProductStatus.ARCHIVED)
+                .orElseThrow(() -> ApiException.notFound("PRODUCT_NOT_FOUND", "Product not found"));
+        return ResponseEntity.ok(productShapeMapper.toShape(product));
+    }
 
     @PatchMapping("/{id}")
     public ResponseEntity<Map<String, Object>> update(@PathVariable("id") Long id,
